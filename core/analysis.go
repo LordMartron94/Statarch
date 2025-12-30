@@ -331,8 +331,287 @@ func StatArchAnalysisValidateVersion[T foundation.Numeric](analysis *StatArchAna
 }
 
 /*
+StatArchAnalysisReset resets an analysis structure to be reused with a new vector.
+
+This function clears the cache map (reusing the existing map to avoid allocations),
+resets all scratch/sorted vector flags, and updates the vector reference, count, and
+source version. The AllocFn is preserved. This allows reusing a single analysis object
+across multiple vectors in hot loops, eliminating expensive allocations.
+
+Use cases:
+- Reusing analysis objects in hot loops (e.g., similarity search over many vectors)
+- Avoiding allocations when processing multiple vectors sequentially
+- Performance optimization in batch operations
+
+Time complexity: O(k) where k is the number of cached statistics (typically small)
+Space complexity: O(1) - reuses existing cache map, no new allocations
+
+Parameters:
+- analysis: The analysis structure to reset (must be previously created)
+- vector: The new vector to analyze (must be valid and initialized)
+
+Prerequisites:
+- analysis must be a valid StatArchAnalysis created with StatArchAnalysisCreate
+- vector must be a valid MarkRaw pointing to a bound vector header
+- AllocFn in analysis must remain valid for the lifetime of the analysis object
+
+Edge cases:
+- If the cache map is nil (should not happen with properly created analysis), it will be initialized
+- Resetting does not free scratch/sorted vectors; they remain allocated until garbage collected
+- SourceVersion is updated to match the new vector's version
+
+Additional notes:
+- This function is designed for hot loop optimization where the same analysis object
+  is reused across many iterations. For one-off analysis, StatArchAnalysisCreate is preferred.
+- The cache map is reused, not reallocated, which is the key performance benefit.
+*/
+func StatArchAnalysisReset[T foundation.Numeric](
+	analysis *StatArchAnalysis[T],
+	vector memcore.MarkRaw,
+) {
+	// Ensure cache map exists (reuse existing if present, allocate only if nil)
+	if analysis.Cache == nil {
+		analysis.Cache = make(map[StatKind]interface{})
+	} else {
+		// Clear cache map (reuse existing map, doesn't allocate new one)
+		for k := range analysis.Cache {
+			delete(analysis.Cache, k)
+		}
+	}
+
+	// Reset sorted and scratch vector flags
+	analysis.SortedCreated = false
+	analysis.ScratchCreated = false
+	analysis.ScratchCreatedF32 = false
+	analysis.ScratchCreatedF64 = false
+
+	// Update vector reference and metadata
+	analysis.Vector = vector
+	analysis.Count = memstruct.VectorCapacityGet[T](vector)
+	analysis.SourceVersion = memstruct.VectorVersionGet[T](vector)
+	// AllocFn is preserved (not reset)
+}
+
+/*
+StatArchAnalysisWithMeanF32 sets the cached mean value in float32 precision.
+
+Returns the analysis object for method chaining.
+
+Time complexity: O(1) - map insertion is constant-time
+Space complexity: O(1) - stores single value in existing cache map
+*/
+func (a *StatArchAnalysis[T]) WithMeanF32(mean float32) *StatArchAnalysis[T] {
+	a.Cache[StatKindMeanF32] = mean
+	return a
+}
+
+/*
+StatArchAnalysisWithMeanF64 sets the cached mean value in float64 precision.
+
+Returns the analysis object for method chaining.
+
+Time complexity: O(1) - map insertion is constant-time
+Space complexity: O(1) - stores single value in existing cache map
+*/
+func (a *StatArchAnalysis[T]) WithMeanF64(mean float64) *StatArchAnalysis[T] {
+	a.Cache[StatKindMeanF64] = mean
+	return a
+}
+
+/*
+StatArchAnalysisWithSumF32 sets the cached sum value in float32 precision.
+
+Returns the analysis object for method chaining.
+
+Time complexity: O(1) - map insertion is constant-time
+Space complexity: O(1) - stores single value in existing cache map
+*/
+func (a *StatArchAnalysis[T]) WithSumF32(sum float32) *StatArchAnalysis[T] {
+	a.Cache[StatKindSumF32] = sum
+	return a
+}
+
+/*
+StatArchAnalysisWithSumF64 sets the cached sum value in float64 precision.
+
+Returns the analysis object for method chaining.
+
+Time complexity: O(1) - map insertion is constant-time
+Space complexity: O(1) - stores single value in existing cache map
+*/
+func (a *StatArchAnalysis[T]) WithSumF64(sum float64) *StatArchAnalysis[T] {
+	a.Cache[StatKindSumF64] = sum
+	return a
+}
+
+/*
+StatArchAnalysisWithNormSquaredF32 sets the cached norm squared (sum of squares) value in float32 precision.
+
+Returns the analysis object for method chaining.
+
+Time complexity: O(1) - map insertion is constant-time
+Space complexity: O(1) - stores single value in existing cache map
+*/
+func (a *StatArchAnalysis[T]) WithNormSquaredF32(normSquared float32) *StatArchAnalysis[T] {
+	a.Cache[StatKindNormSquaredF32] = normSquared
+	return a
+}
+
+/*
+StatArchAnalysisWithNormSquaredF64 sets the cached norm squared (sum of squares) value in float64 precision.
+
+Returns the analysis object for method chaining.
+
+Time complexity: O(1) - map insertion is constant-time
+Space complexity: O(1) - stores single value in existing cache map
+*/
+func (a *StatArchAnalysis[T]) WithNormSquaredF64(normSquared float64) *StatArchAnalysis[T] {
+	a.Cache[StatKindNormSquaredF64] = normSquared
+	return a
+}
+
+/*
+StatArchAnalysisWithVarianceF32 sets the cached variance value in float32 precision.
+
+Parameters:
+- variance: The variance value
+- sample: If true, sets sample variance. If false, sets population variance.
+
+Returns the analysis object for method chaining.
+
+Time complexity: O(1) - map insertion is constant-time
+Space complexity: O(1) - stores single value in existing cache map
+*/
+func (a *StatArchAnalysis[T]) WithVarianceF32(variance float32, sample bool) *StatArchAnalysis[T] {
+	if sample {
+		a.Cache[StatKindVarianceF32Sample] = variance
+	} else {
+		a.Cache[StatKindVarianceF32Population] = variance
+	}
+	return a
+}
+
+/*
+StatArchAnalysisWithVarianceF64 sets the cached variance value in float64 precision.
+
+Parameters:
+- variance: The variance value
+- sample: If true, sets sample variance. If false, sets population variance.
+
+Returns the analysis object for method chaining.
+
+Time complexity: O(1) - map insertion is constant-time
+Space complexity: O(1) - stores single value in existing cache map
+*/
+func (a *StatArchAnalysis[T]) WithVarianceF64(variance float64, sample bool) *StatArchAnalysis[T] {
+	if sample {
+		a.Cache[StatKindVarianceF64Sample] = variance
+	} else {
+		a.Cache[StatKindVarianceF64Population] = variance
+	}
+	return a
+}
+
+/*
+StatArchAnalysisWithStandardDeviationF32 sets the cached standard deviation value in float32 precision.
+
+Parameters:
+- stddev: The standard deviation value
+- sample: If true, sets sample standard deviation. If false, sets population standard deviation.
+
+Returns the analysis object for method chaining.
+
+Time complexity: O(1) - map insertion is constant-time
+Space complexity: O(1) - stores single value in existing cache map
+*/
+func (a *StatArchAnalysis[T]) WithStandardDeviationF32(stddev float32, sample bool) *StatArchAnalysis[T] {
+	if sample {
+		a.Cache[StatKindStddevF32Sample] = stddev
+	} else {
+		a.Cache[StatKindStddevF32Population] = stddev
+	}
+	return a
+}
+
+/*
+StatArchAnalysisWithStandardDeviationF64 sets the cached standard deviation value in float64 precision.
+
+Parameters:
+- stddev: The standard deviation value
+- sample: If true, sets sample standard deviation. If false, sets population standard deviation.
+
+Returns the analysis object for method chaining.
+
+Time complexity: O(1) - map insertion is constant-time
+Space complexity: O(1) - stores single value in existing cache map
+*/
+func (a *StatArchAnalysis[T]) WithStandardDeviationF64(stddev float64, sample bool) *StatArchAnalysis[T] {
+	if sample {
+		a.Cache[StatKindStddevF64Sample] = stddev
+	} else {
+		a.Cache[StatKindStddevF64Population] = stddev
+	}
+	return a
+}
+
+/*
+StatArchAnalysisWithMin sets the cached minimum value.
+
+Returns the analysis object for method chaining.
+
+Time complexity: O(1) - map insertion is constant-time
+Space complexity: O(1) - stores single value in existing cache map
+*/
+func (a *StatArchAnalysis[T]) WithMin(min T) *StatArchAnalysis[T] {
+	a.Cache[StatKindMin] = min
+	return a
+}
+
+/*
+StatArchAnalysisWithMax sets the cached maximum value.
+
+Returns the analysis object for method chaining.
+
+Time complexity: O(1) - map insertion is constant-time
+Space complexity: O(1) - stores single value in existing cache map
+*/
+func (a *StatArchAnalysis[T]) WithMax(max T) *StatArchAnalysis[T] {
+	a.Cache[StatKindMax] = max
+	return a
+}
+
+/*
+StatArchAnalysisWithCacheValue sets an arbitrary cached value by StatKind.
+
+This method allows setting any cached statistic that may not have a dedicated
+With method. Use this for less common statistics or when you need to set
+multiple values of the same type.
+
+Parameters:
+- kind: The StatKind constant identifying the statistic
+- value: The value to cache (must match the expected type for the StatKind)
+
+Returns the analysis object for method chaining.
+
+Time complexity: O(1) - map insertion is constant-time
+Space complexity: O(1) - stores single value in existing cache map
+
+Example:
+```go
+analysis.WithCacheValue(core.StatKindMedianF64, 42.5)
+```
+*/
+func (a *StatArchAnalysis[T]) WithCacheValue(kind StatKind, value interface{}) *StatArchAnalysis[T] {
+	a.Cache[kind] = value
+	return a
+}
+
+/*
 StatArchAnalysisBuilder provides a fluent interface for creating StatArchAnalysis objects
 with pre-filled cached values.
+
+DEPRECATED: This builder pattern is deprecated. Use method receivers directly on
+StatArchAnalysis instead (e.g., analysis.WithNormSquaredF64(...)).
 
 Use cases:
 - Pre-filling cached values when they are already known (e.g., from external computation)
