@@ -330,4 +330,252 @@ func StatArchAnalysisValidateVersion[T foundation.Numeric](analysis *StatArchAna
 	return false
 }
 
+/*
+StatArchAnalysisBuilder provides a fluent interface for creating StatArchAnalysis objects
+with pre-filled cached values.
 
+Use cases:
+- Pre-filling cached values when they are already known (e.g., from external computation)
+- Optimizing performance by avoiding redundant computations
+- Building analysis objects with specific cached statistics
+
+Time complexity: O(1) per builder method call
+Space complexity: O(k) where k is the number of cached values set
+
+Example:
+```go
+builder := core.StatArchAnalysisBuilderCreate[float64](vector, allocFn)
+analysis := builder.
+
+	WithMeanF64(42.5).
+	WithSumF64(4250.0).
+	WithNormSquaredF64(100000.0).
+	Build()
+
+```
+*/
+type StatArchAnalysisBuilder[T foundation.Numeric] struct {
+	analysis *StatArchAnalysis[T]
+}
+
+/*
+StatArchAnalysisBuilderCreate creates a new builder for constructing a StatArchAnalysis object.
+
+Time complexity: O(1) - only initializes structure
+Space complexity: O(1) - initializes empty cache map
+
+Parameters:
+- vector: The vector to analyze (must be valid and initialized)
+- allocFn: Function to allocate memory for sorted/scratch vectors when needed
+
+Returns:
+- A new builder ready for setting cached values
+
+The builder creates an analysis structure with an empty cache that can be populated
+with pre-computed values before building.
+*/
+func StatArchAnalysisBuilderCreate[T foundation.Numeric](
+	vector memcore.MarkRaw,
+	allocFn func(sizeBytes, alignment uint64) memcore.MarkRaw,
+) *StatArchAnalysisBuilder[T] {
+	return &StatArchAnalysisBuilder[T]{
+		analysis: &StatArchAnalysis[T]{
+			Vector:        vector,
+			Cache:         make(map[StatKind]interface{}),
+			AllocFn:       allocFn,
+			Count:         memstruct.VectorCapacityGet[T](vector),
+			SourceVersion: memstruct.VectorVersionGet[T](vector),
+		},
+	}
+}
+
+/*
+WithMeanF32 sets the cached mean value in float32 precision.
+
+Returns the builder for method chaining.
+*/
+func (b *StatArchAnalysisBuilder[T]) WithMeanF32(mean float32) *StatArchAnalysisBuilder[T] {
+	b.analysis.Cache[StatKindMeanF32] = mean
+	return b
+}
+
+/*
+WithMeanF64 sets the cached mean value in float64 precision.
+
+Returns the builder for method chaining.
+*/
+func (b *StatArchAnalysisBuilder[T]) WithMeanF64(mean float64) *StatArchAnalysisBuilder[T] {
+	b.analysis.Cache[StatKindMeanF64] = mean
+	return b
+}
+
+/*
+WithSumF32 sets the cached sum value in float32 precision.
+
+Returns the builder for method chaining.
+*/
+func (b *StatArchAnalysisBuilder[T]) WithSumF32(sum float32) *StatArchAnalysisBuilder[T] {
+	b.analysis.Cache[StatKindSumF32] = sum
+	return b
+}
+
+/*
+WithSumF64 sets the cached sum value in float64 precision.
+
+Returns the builder for method chaining.
+*/
+func (b *StatArchAnalysisBuilder[T]) WithSumF64(sum float64) *StatArchAnalysisBuilder[T] {
+	b.analysis.Cache[StatKindSumF64] = sum
+	return b
+}
+
+/*
+WithNormSquaredF32 sets the cached norm squared (sum of squares) value in float32 precision.
+
+Returns the builder for method chaining.
+*/
+func (b *StatArchAnalysisBuilder[T]) WithNormSquaredF32(normSquared float32) *StatArchAnalysisBuilder[T] {
+	b.analysis.Cache[StatKindNormSquaredF32] = normSquared
+	return b
+}
+
+/*
+WithNormSquaredF64 sets the cached norm squared (sum of squares) value in float64 precision.
+
+Returns the builder for method chaining.
+*/
+func (b *StatArchAnalysisBuilder[T]) WithNormSquaredF64(normSquared float64) *StatArchAnalysisBuilder[T] {
+	b.analysis.Cache[StatKindNormSquaredF64] = normSquared
+	return b
+}
+
+/*
+WithVarianceF32 sets the cached variance value in float32 precision.
+
+Parameters:
+- variance: The variance value
+- sample: If true, sets sample variance. If false, sets population variance.
+
+Returns the builder for method chaining.
+*/
+func (b *StatArchAnalysisBuilder[T]) WithVarianceF32(variance float32, sample bool) *StatArchAnalysisBuilder[T] {
+	if sample {
+		b.analysis.Cache[StatKindVarianceF32Sample] = variance
+	} else {
+		b.analysis.Cache[StatKindVarianceF32Population] = variance
+	}
+	return b
+}
+
+/*
+WithVarianceF64 sets the cached variance value in float64 precision.
+
+Parameters:
+- variance: The variance value
+- sample: If true, sets sample variance. If false, sets population variance.
+
+Returns the builder for method chaining.
+*/
+func (b *StatArchAnalysisBuilder[T]) WithVarianceF64(variance float64, sample bool) *StatArchAnalysisBuilder[T] {
+	if sample {
+		b.analysis.Cache[StatKindVarianceF64Sample] = variance
+	} else {
+		b.analysis.Cache[StatKindVarianceF64Population] = variance
+	}
+	return b
+}
+
+/*
+WithStandardDeviationF32 sets the cached standard deviation value in float32 precision.
+
+Parameters:
+- stddev: The standard deviation value
+- sample: If true, sets sample standard deviation. If false, sets population standard deviation.
+
+Returns the builder for method chaining.
+*/
+func (b *StatArchAnalysisBuilder[T]) WithStandardDeviationF32(stddev float32, sample bool) *StatArchAnalysisBuilder[T] {
+	if sample {
+		b.analysis.Cache[StatKindStddevF32Sample] = stddev
+	} else {
+		b.analysis.Cache[StatKindStddevF32Population] = stddev
+	}
+	return b
+}
+
+/*
+WithStandardDeviationF64 sets the cached standard deviation value in float64 precision.
+
+Parameters:
+- stddev: The standard deviation value
+- sample: If true, sets sample standard deviation. If false, sets population standard deviation.
+
+Returns the builder for method chaining.
+*/
+func (b *StatArchAnalysisBuilder[T]) WithStandardDeviationF64(stddev float64, sample bool) *StatArchAnalysisBuilder[T] {
+	if sample {
+		b.analysis.Cache[StatKindStddevF64Sample] = stddev
+	} else {
+		b.analysis.Cache[StatKindStddevF64Population] = stddev
+	}
+	return b
+}
+
+/*
+WithMin sets the cached minimum value.
+
+Returns the builder for method chaining.
+*/
+func (b *StatArchAnalysisBuilder[T]) WithMin(min T) *StatArchAnalysisBuilder[T] {
+	b.analysis.Cache[StatKindMin] = min
+	return b
+}
+
+/*
+WithMax sets the cached maximum value.
+
+Returns the builder for method chaining.
+*/
+func (b *StatArchAnalysisBuilder[T]) WithMax(max T) *StatArchAnalysisBuilder[T] {
+	b.analysis.Cache[StatKindMax] = max
+	return b
+}
+
+/*
+WithCacheValue sets an arbitrary cached value by StatKind.
+
+This method allows setting any cached statistic that may not have a dedicated
+With method. Use this for less common statistics or when you need to set
+multiple values of the same type.
+
+Parameters:
+- kind: The StatKind constant identifying the statistic
+- value: The value to cache (must match the expected type for the StatKind)
+
+Returns the builder for method chaining.
+
+Example:
+```go
+builder.WithCacheValue(core.StatKindMedianF64, 42.5)
+```
+*/
+func (b *StatArchAnalysisBuilder[T]) WithCacheValue(kind StatKind, value interface{}) *StatArchAnalysisBuilder[T] {
+	b.analysis.Cache[kind] = value
+	return b
+}
+
+/*
+Build returns the constructed StatArchAnalysis object.
+
+Time complexity: O(1) - just returns the built analysis object
+Space complexity: O(1) - no additional allocations
+
+Returns:
+- The fully constructed StatArchAnalysis object with all pre-filled cached values
+
+After calling Build, the builder should not be used further. The returned
+analysis object is ready for use with all StatArch functions.
+*/
+func (b *StatArchAnalysisBuilder[T]) Build() *StatArchAnalysis[T] {
+	return b.analysis
+}

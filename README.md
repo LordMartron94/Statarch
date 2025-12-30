@@ -72,6 +72,12 @@ Descriptive statistics operations that summarize data characteristics.
   - Sorted and scratch vectors are created lazily and reused across operations
   - The analysis structure is shared across all StatArch packages (descriptive, hypothesis, etc.)
 
+- `StatArchAnalysisBuilderCreate[T]` (from `statarch/core`) - Create a builder for pre-filling cached values
+  - Allows clients to set pre-computed statistics (mean, sum, norm squared, variance, etc.)
+  - Useful when statistics are already known from external computation
+  - Provides fluent interface with method chaining
+  - Example: `builder := core.StatArchAnalysisBuilderCreate[float64](vector, allocFn).WithMeanF64(42.5).WithSumF64(4250.0).Build()`
+
 **Central Tendency:**
 
 - `StatArchDescriptiveVectorMeanF32` / `StatArchDescriptiveVectorMeanF64` - Calculate arithmetic mean (cached)
@@ -163,6 +169,15 @@ vectorMark, _ := memarch.MemArchVectorCreate[float64](allocFn, 1000)
 // Create analysis structure (requires allocFn for internal sorted/scratch vectors)
 import "statarch/core"
 analysis := core.StatArchAnalysisCreate[float64](vectorMark, allocFn)
+
+// Alternatively, use builder pattern to pre-fill cached values if already known
+// This is useful when you've computed statistics externally and want to avoid recomputation
+builder := core.StatArchAnalysisBuilderCreate[float64](vectorMark, allocFn)
+analysisWithCache := builder.
+    WithMeanF64(42.5).
+    WithSumF64(4250.0).
+    WithNormSquaredF64(100000.0).
+    Build()
 
 // All functions operate on the analysis structure and cache their results
 // First call computes and caches, subsequent calls return cached values
