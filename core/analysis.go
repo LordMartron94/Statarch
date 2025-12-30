@@ -337,7 +337,7 @@ func StatArchAnalysisValidateVersion[T foundation.Numeric](analysis *StatArchAna
 }
 
 /*
-GetCacheValue retrieves a cached value by StatKind.
+StatArchAnalysisGetCacheValue retrieves a cached value by StatKind.
 
 Returns the value and true if cached, nil and false otherwise.
 This method handles the index conversion (StatKind - 1) internally.
@@ -345,7 +345,7 @@ This method handles the index conversion (StatKind - 1) internally.
 Time complexity: O(1)
 Space complexity: O(1)
 */
-func GetCacheValue[T foundation.Numeric](analysis *StatArchAnalysis[T], kind StatKind) (interface{}, bool) {
+func StatArchAnalysisGetCacheValue[T foundation.Numeric](analysis *StatArchAnalysis[T], kind StatKind) (interface{}, bool) {
 	if kind < 1 || kind > StatKindCount {
 		return nil, false
 	}
@@ -355,14 +355,14 @@ func GetCacheValue[T foundation.Numeric](analysis *StatArchAnalysis[T], kind Sta
 }
 
 /*
-SetCacheValue sets a cached value by StatKind.
+StatArchAnalysisSetCacheValue sets a cached value by StatKind.
 
 This method handles the index conversion (StatKind - 1) internally.
 
 Time complexity: O(1)
 Space complexity: O(1)
 */
-func SetCacheValue[T foundation.Numeric](analysis *StatArchAnalysis[T], kind StatKind, value interface{}) {
+func StatArchAnalysisSetCacheValue[T foundation.Numeric](analysis *StatArchAnalysis[T], kind StatKind, value interface{}) {
 	if kind < 1 || kind > StatKindCount {
 		return
 	}
@@ -436,7 +436,7 @@ Time complexity: O(1) - map insertion is constant-time
 Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithMeanF32(mean float32) *StatArchAnalysis[T] {
-	SetCacheValue(a, StatKindMeanF32, mean)
+	StatArchAnalysisSetCacheValue(a, StatKindMeanF32, mean)
 	return a
 }
 
@@ -449,7 +449,7 @@ Time complexity: O(1) - map insertion is constant-time
 Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithMeanF64(mean float64) *StatArchAnalysis[T] {
-	SetCacheValue(a, StatKindMeanF64, mean)
+	StatArchAnalysisSetCacheValue(a, StatKindMeanF64, mean)
 	return a
 }
 
@@ -462,7 +462,7 @@ Time complexity: O(1) - map insertion is constant-time
 Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithSumF32(sum float32) *StatArchAnalysis[T] {
-	SetCacheValue(a, StatKindSumF32, sum)
+	StatArchAnalysisSetCacheValue(a, StatKindSumF32, sum)
 	return a
 }
 
@@ -475,7 +475,7 @@ Time complexity: O(1) - map insertion is constant-time
 Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithSumF64(sum float64) *StatArchAnalysis[T] {
-	SetCacheValue(a, StatKindSumF64, sum)
+	StatArchAnalysisSetCacheValue(a, StatKindSumF64, sum)
 	return a
 }
 
@@ -488,7 +488,7 @@ Time complexity: O(1) - map insertion is constant-time
 Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithNormSquaredF32(normSquared float32) *StatArchAnalysis[T] {
-	SetCacheValue(a, StatKindNormSquaredF32, normSquared)
+	StatArchAnalysisSetCacheValue(a, StatKindNormSquaredF32, normSquared)
 	return a
 }
 
@@ -501,7 +501,7 @@ Time complexity: O(1) - map insertion is constant-time
 Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithNormSquaredF64(normSquared float64) *StatArchAnalysis[T] {
-	SetCacheValue(a, StatKindNormSquaredF64, normSquared)
+	StatArchAnalysisSetCacheValue(a, StatKindNormSquaredF64, normSquared)
 	return a
 }
 
@@ -519,9 +519,9 @@ Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithVarianceF32(variance float32, sample bool) *StatArchAnalysis[T] {
 	if sample {
-		SetCacheValue(a, StatKindVarianceF32Sample, variance)
+		StatArchAnalysisSetCacheValue(a, StatKindVarianceF32Sample, variance)
 	} else {
-		SetCacheValue(a, StatKindVarianceF32Population, variance)
+		StatArchAnalysisSetCacheValue(a, StatKindVarianceF32Population, variance)
 	}
 	return a
 }
@@ -540,9 +540,9 @@ Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithVarianceF64(variance float64, sample bool) *StatArchAnalysis[T] {
 	if sample {
-		SetCacheValue(a, StatKindVarianceF64Sample, variance)
+		StatArchAnalysisSetCacheValue(a, StatKindVarianceF64Sample, variance)
 	} else {
-		SetCacheValue(a, StatKindVarianceF64Population, variance)
+		StatArchAnalysisSetCacheValue(a, StatKindVarianceF64Population, variance)
 	}
 	return a
 }
@@ -561,9 +561,9 @@ Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithStandardDeviationF32(stddev float32, sample bool) *StatArchAnalysis[T] {
 	if sample {
-		SetCacheValue(a, StatKindStddevF32Sample, stddev)
+		StatArchAnalysisSetCacheValue(a, StatKindStddevF32Sample, stddev)
 	} else {
-		SetCacheValue(a, StatKindStddevF32Population, stddev)
+		StatArchAnalysisSetCacheValue(a, StatKindStddevF32Population, stddev)
 	}
 	return a
 }
@@ -582,9 +582,9 @@ Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithStandardDeviationF64(stddev float64, sample bool) *StatArchAnalysis[T] {
 	if sample {
-		SetCacheValue(a, StatKindStddevF64Sample, stddev)
+		StatArchAnalysisSetCacheValue(a, StatKindStddevF64Sample, stddev)
 	} else {
-		SetCacheValue(a, StatKindStddevF64Population, stddev)
+		StatArchAnalysisSetCacheValue(a, StatKindStddevF64Population, stddev)
 	}
 	return a
 }
@@ -598,7 +598,7 @@ Time complexity: O(1) - map insertion is constant-time
 Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithMin(min T) *StatArchAnalysis[T] {
-	SetCacheValue(a, StatKindMin, min)
+	StatArchAnalysisSetCacheValue(a, StatKindMin, min)
 	return a
 }
 
@@ -611,7 +611,7 @@ Time complexity: O(1) - map insertion is constant-time
 Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithMax(max T) *StatArchAnalysis[T] {
-	SetCacheValue(a, StatKindMax, max)
+	StatArchAnalysisSetCacheValue(a, StatKindMax, max)
 	return a
 }
 
@@ -637,6 +637,6 @@ analysis.WithCacheValue(core.StatKindMedianF64, 42.5)
 ```
 */
 func (a *StatArchAnalysis[T]) WithCacheValue(kind StatKind, value interface{}) *StatArchAnalysis[T] {
-	SetCacheValue(a, kind, value)
+	StatArchAnalysisSetCacheValue(a, kind, value)
 	return a
 }
