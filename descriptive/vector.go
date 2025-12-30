@@ -204,6 +204,52 @@ func StatArchDescriptiveVectorNormSquaredF32[T foundation.Numeric](
 }
 
 /*
+StatArchDescriptiveVectorNormF32 computes the vector norm (magnitude) in float32 precision.
+
+The norm is the square root of the sum of squares: ||v|| = √(Σ(v_i²))
+
+Use cases:
+- Pre-requisite for cosine similarity (vector norm)
+- Distance calculations
+- Vector magnitude computations
+- Normalization
+
+Time complexity: O(1) - uses cached norm squared, only computes sqrt
+Space complexity: O(1) - only accumulator variable used
+
+Prerequisites:
+- Vector must contain at least 1 element
+- Vector does not need to be sorted
+
+Edge cases:
+- Returns 0 if vector is empty (count is 0)
+- Works with any numeric type (int, float32, float64, etc.)
+
+The function uses the analysis structure to cache the computed norm value.
+If the norm has already been computed, it returns the cached value.
+It automatically computes and caches norm squared if not already available.
+*/
+func StatArchDescriptiveVectorNormF32[T foundation.Numeric](
+	analysis *core.StatArchAnalysis[T],
+) float32 {
+	core.StatArchAnalysisValidateVersion(analysis)
+
+	if cached, ok := core.StatArchAnalysisGetCacheValue(analysis, core.StatKindNormF32); ok {
+		return cached.(float32)
+	}
+
+	// Get or compute norm squared
+	normSquared := StatArchDescriptiveVectorNormSquaredF32(analysis)
+
+	// Compute norm (sqrt of norm squared)
+	norm := foundation.Sqrt32(normSquared)
+
+	core.StatArchAnalysisSetCacheValue(analysis, core.StatKindNormF32, norm)
+
+	return norm
+}
+
+/*
 StatArchDescriptiveVectorNormSquaredF64 computes the sum of squares (norm squared) of a vector in float64 precision.
 
 The norm squared is the sum of each element squared: ||v||² = Σ(v_i²)
@@ -241,6 +287,52 @@ func StatArchDescriptiveVectorNormSquaredF64[T foundation.Numeric](
 	core.StatArchAnalysisSetCacheValue(analysis, core.StatKindNormSquaredF64, normSquared)
 
 	return normSquared
+}
+
+/*
+StatArchDescriptiveVectorNormF64 computes the vector norm (magnitude) in float64 precision.
+
+The norm is the square root of the sum of squares: ||v|| = √(Σ(v_i²))
+
+Use cases:
+- Pre-requisite for cosine similarity (vector norm)
+- Distance calculations
+- Vector magnitude computations
+- Normalization
+
+Time complexity: O(1) - uses cached norm squared, only computes sqrt
+Space complexity: O(1) - only accumulator variable used
+
+Prerequisites:
+- Vector must contain at least 1 element
+- Vector does not need to be sorted
+
+Edge cases:
+- Returns 0 if vector is empty (count is 0)
+- Works with any numeric type (int, float32, float64, etc.)
+
+The function uses the analysis structure to cache the computed norm value.
+If the norm has already been computed, it returns the cached value.
+It automatically computes and caches norm squared if not already available.
+*/
+func StatArchDescriptiveVectorNormF64[T foundation.Numeric](
+	analysis *core.StatArchAnalysis[T],
+) float64 {
+	core.StatArchAnalysisValidateVersion(analysis)
+
+	if cached, ok := core.StatArchAnalysisGetCacheValue(analysis, core.StatKindNormF64); ok {
+		return cached.(float64)
+	}
+
+	// Get or compute norm squared
+	normSquared := StatArchDescriptiveVectorNormSquaredF64(analysis)
+
+	// Compute norm (sqrt of norm squared)
+	norm := foundation.Sqrt64(normSquared)
+
+	core.StatArchAnalysisSetCacheValue(analysis, core.StatKindNormF64, norm)
+
+	return norm
 }
 
 /*

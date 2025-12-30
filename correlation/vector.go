@@ -616,12 +616,10 @@ func StatArchCorrelationVectorCosineSimilarityF32[T foundation.Numeric](
 		panic("cannot compute cosine similarity with empty vectors")
 	}
 
-	// Use cached norm squared values if available, otherwise compute and cache
-	normASq := descriptive.StatArchDescriptiveVectorNormSquaredF32(analysisA)
-	normBSq := descriptive.StatArchDescriptiveVectorNormSquaredF32(analysisB)
-
-	normA := foundation.Sqrt32(normASq)
-	normB := foundation.Sqrt32(normBSq)
+	// Use cached norm values if available, otherwise compute and cache
+	// This automatically uses cached norm squared and computes sqrt only once
+	normA := descriptive.StatArchDescriptiveVectorNormF32(analysisA)
+	normB := descriptive.StatArchDescriptiveVectorNormF32(analysisB)
 
 	if normA == 0 || normB == 0 {
 		panic("vector norm is 0, cannot compute cosine similarity")
@@ -681,12 +679,10 @@ func StatArchCorrelationVectorCosineSimilarityF64[T foundation.Numeric](
 		panic("cannot compute cosine similarity with empty vectors")
 	}
 
-	// Use cached norm squared values if available, otherwise compute and cache
-	normASq := descriptive.StatArchDescriptiveVectorNormSquaredF64(analysisA)
-	normBSq := descriptive.StatArchDescriptiveVectorNormSquaredF64(analysisB)
-
-	normA := foundation.Sqrt64(normASq)
-	normB := foundation.Sqrt64(normBSq)
+	// Use cached norm values if available, otherwise compute and cache
+	// This automatically uses cached norm squared and computes sqrt only once
+	normA := descriptive.StatArchDescriptiveVectorNormF64(analysisA)
+	normB := descriptive.StatArchDescriptiveVectorNormF64(analysisB)
 
 	if normA == 0 || normB == 0 {
 		panic("vector norm is 0, cannot compute cosine similarity")

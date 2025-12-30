@@ -88,10 +88,12 @@ const (
 	StatKindSumF64
 	StatKindNormSquaredF32
 	StatKindNormSquaredF64
+	StatKindNormF32
+	StatKindNormF64
 
 	// StatKindCount is the total number of statistic kinds.
 	// Since StatKind starts at iota + 1 (value 1), this represents the last StatKind value.
-	StatKindCount = StatKindNormSquaredF64
+	StatKindCount = StatKindNormF64
 )
 
 /*
