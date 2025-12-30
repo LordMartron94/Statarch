@@ -784,3 +784,13 @@ func (a *StatArchAnalysis[T]) WithCacheValue(kind StatKind, value interface{}) *
 	StatArchAnalysisSetCacheValue(a, kind, value)
 	return a
 }
+
+func (a *StatArchAnalysis[T]) WithCacheValueF32(kind StatKind, value float32) *StatArchAnalysis[T] {
+	StatArchAnalysisSetCacheValueF32(a, kind, value)
+	return a
+}
+
+func (a *StatArchAnalysis[T]) WithCacheValueF64(kind StatKind, value float64) *StatArchAnalysis[T] {
+	StatArchAnalysisSetCacheValueF64(a, kind, value)
+	return a
+}
