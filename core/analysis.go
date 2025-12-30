@@ -2,7 +2,6 @@ package core
 
 import (
 	"foundation"
-	"math"
 	"memarch"
 	"memcore"
 	"memstruct"
@@ -137,6 +136,12 @@ type StatArchAnalysis[T foundation.Numeric] struct {
 	cacheF64   []float64
 	cacheOther []interface{} // For non-float types (T, uint): Min, Max, Mode, ModeOccurrence
 
+	// Validity bitmasks to track which cache entries are valid (needed to distinguish 0.0 from "not cached")
+	// Each bit represents whether the corresponding cache entry is valid
+	// We need 2 uint64s to cover StatKindCount (96) entries
+	cacheF32Valid [2]uint64
+	cacheF64Valid [2]uint64
+
 	// Sorted copy of the vector (created on demand for functions that require sorted data)
 	SortedVector  memcore.MarkRaw
 	SortedCreated bool
@@ -186,23 +191,15 @@ func StatArchAnalysisCreate[T foundation.Numeric](
 	vector memcore.MarkRaw,
 	allocFn func(sizeBytes, alignment uint64) memcore.MarkRaw,
 ) *StatArchAnalysis[T] {
-	cacheF32 := make([]float32, StatKindCount)
-	cacheF64 := make([]float64, StatKindCount)
-	// Initialize with NaN to mark as "not cached"
-	for i := range cacheF32 {
-		cacheF32[i] = float32(math.NaN())
-	}
-	for i := range cacheF64 {
-		cacheF64[i] = math.NaN()
-	}
 	return &StatArchAnalysis[T]{
 		Vector:        vector,
-		cacheF32:      cacheF32,
-		cacheF64:      cacheF64,
+		cacheF32:      make([]float32, StatKindCount),
+		cacheF64:      make([]float64, StatKindCount),
 		cacheOther:    make([]interface{}, StatKindCount),
 		AllocFn:       allocFn,
 		Count:         memstruct.VectorCapacityGet[T](vector),
 		SourceVersion: memstruct.VectorVersionGet[T](vector),
+		// cacheF32Valid and cacheF64Valid are zero-initialized (all bits 0 = not cached)
 	}
 }
 
@@ -312,14 +309,17 @@ Time complexity: O(k) where k is the number of cached statistics (typically smal
 Space complexity: O(1) - clears existing cache, doesn't allocate new memory
 */
 func StatArchAnalysisInvalidateCache[T foundation.Numeric](analysis *StatArchAnalysis[T]) {
-	// Clear all cache slices
-	// For float32/float64, set to NaN to mark as "not cached"
-	for i := range analysis.cacheF32 {
-		analysis.cacheF32[i] = float32(math.NaN())
+	if len(analysis.cacheF32) > 0 {
+		memclrNoHeapPointers(unsafe.Pointer(&analysis.cacheF32[0]), uintptr(len(analysis.cacheF32))*unsafe.Sizeof(analysis.cacheF32[0]))
 	}
-	for i := range analysis.cacheF64 {
-		analysis.cacheF64[i] = math.NaN()
+	if len(analysis.cacheF64) > 0 {
+		memclrNoHeapPointers(unsafe.Pointer(&analysis.cacheF64[0]), uintptr(len(analysis.cacheF64))*unsafe.Sizeof(analysis.cacheF64[0]))
 	}
+	// Clear validity bitmasks
+	analysis.cacheF32Valid[0] = 0
+	analysis.cacheF32Valid[1] = 0
+	analysis.cacheF64Valid[0] = 0
+	analysis.cacheF64Valid[1] = 0
 	// For cacheOther, set to nil (interface{} contains pointers)
 	for i := range analysis.cacheOther {
 		analysis.cacheOther[i] = nil
@@ -367,7 +367,7 @@ StatArchAnalysisGetCacheValueF32 retrieves a cached float32 value by StatKind.
 Returns the value and true if cached, 0 and false otherwise.
 This method handles the index conversion (StatKind - 1) internally.
 Direct access without type assertion overhead.
-Uses NaN as a sentinel value to mark "not cached".
+Uses validity bitmask to track which entries are cached.
 
 Time complexity: O(1)
 Space complexity: O(1)
@@ -377,12 +377,13 @@ func StatArchAnalysisGetCacheValueF32[T foundation.Numeric](analysis *StatArchAn
 		return 0, false
 	}
 	idx := kind - 1
-	val := analysis.cacheF32[idx]
-	// Check if value is NaN (not cached)
-	if math.IsNaN(float64(val)) {
+	// Check validity bitmask
+	bitIdx := idx / 64
+	bitPos := idx % 64
+	if bitIdx < 2 && (analysis.cacheF32Valid[bitIdx]&(1<<bitPos)) == 0 {
 		return 0, false
 	}
-	return val, true
+	return analysis.cacheF32[idx], true
 }
 
 /*
@@ -391,7 +392,7 @@ StatArchAnalysisGetCacheValueF64 retrieves a cached float64 value by StatKind.
 Returns the value and true if cached, 0 and false otherwise.
 This method handles the index conversion (StatKind - 1) internally.
 Direct access without type assertion overhead.
-Uses NaN as a sentinel value to mark "not cached".
+Uses validity bitmask to track which entries are cached.
 
 Time complexity: O(1)
 Space complexity: O(1)
@@ -401,12 +402,13 @@ func StatArchAnalysisGetCacheValueF64[T foundation.Numeric](analysis *StatArchAn
 		return 0, false
 	}
 	idx := kind - 1
-	val := analysis.cacheF64[idx]
-	// Check if value is NaN (not cached)
-	if math.IsNaN(val) {
+	// Check validity bitmask
+	bitIdx := idx / 64
+	bitPos := idx % 64
+	if bitIdx < 2 && (analysis.cacheF64Valid[bitIdx]&(1<<bitPos)) == 0 {
 		return 0, false
 	}
-	return val, true
+	return analysis.cacheF64[idx], true
 }
 
 /*
@@ -424,6 +426,12 @@ func StatArchAnalysisSetCacheValueF32[T foundation.Numeric](analysis *StatArchAn
 	}
 	idx := kind - 1
 	analysis.cacheF32[idx] = value
+	// Set validity bit
+	bitIdx := idx / 64
+	bitPos := idx % 64
+	if bitIdx < 2 {
+		analysis.cacheF32Valid[bitIdx] |= 1 << bitPos
+	}
 }
 
 /*
@@ -441,6 +449,12 @@ func StatArchAnalysisSetCacheValueF64[T foundation.Numeric](analysis *StatArchAn
 	}
 	idx := kind - 1
 	analysis.cacheF64[idx] = value
+	// Set validity bit
+	bitIdx := idx / 64
+	bitPos := idx % 64
+	if bitIdx < 2 {
+		analysis.cacheF64Valid[bitIdx] |= 1 << bitPos
+	}
 }
 
 /*
@@ -518,14 +532,19 @@ func StatArchAnalysisReset[T foundation.Numeric](
 	analysis *StatArchAnalysis[T],
 	vector memcore.MarkRaw,
 ) {
-	// Clear cache slices efficiently
-	// For float32/float64, set to NaN to mark as "not cached"
-	for i := range analysis.cacheF32 {
-		analysis.cacheF32[i] = float32(math.NaN())
+	// Clear cache slices efficiently using memclr (near constant time)
+	// For float32/float64, use memclrNoHeapPointers (value types)
+	if len(analysis.cacheF32) > 0 {
+		memclrNoHeapPointers(unsafe.Pointer(&analysis.cacheF32[0]), uintptr(len(analysis.cacheF32))*unsafe.Sizeof(analysis.cacheF32[0]))
 	}
-	for i := range analysis.cacheF64 {
-		analysis.cacheF64[i] = math.NaN()
+	if len(analysis.cacheF64) > 0 {
+		memclrNoHeapPointers(unsafe.Pointer(&analysis.cacheF64[0]), uintptr(len(analysis.cacheF64))*unsafe.Sizeof(analysis.cacheF64[0]))
 	}
+	// Clear validity bitmasks (constant time - just 2 assignments)
+	analysis.cacheF32Valid[0] = 0
+	analysis.cacheF32Valid[1] = 0
+	analysis.cacheF64Valid[0] = 0
+	analysis.cacheF64Valid[1] = 0
 	// For cacheOther, use memclrHasPointers (interface{} contains pointers)
 	if len(analysis.cacheOther) > 0 {
 		memclrHasPointers(unsafe.Pointer(&analysis.cacheOther[0]), uintptr(len(analysis.cacheOther))*unsafe.Sizeof(analysis.cacheOther[0]))
