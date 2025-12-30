@@ -41,9 +41,11 @@ This state is updated incrementally when values are added to the buffer, avoidin
 type StatArchRollingAnalysis[T foundation.Numeric] struct {
 	Buffer memcore.MarkRaw
 
-	// Cached computed values stored as interface{} to support different types (float32, float64, T)
+	// Type-specific caches to avoid convT32/convT64 overhead
 	// Keys are StatKind constants, values are the computed statistics
-	Cache map[core.StatKind]interface{}
+	CacheF32   map[core.StatKind]float32
+	CacheF64   map[core.StatKind]float64
+	CacheOther map[core.StatKind]interface{} // For non-float types (T): RollingMin, RollingMax, RollingSum
 
 	// Welford's algorithm state for rolling mean, variance, skewness, and kurtosis
 	// These are maintained incrementally as values are added/removed
@@ -96,7 +98,9 @@ func StatArchRollingAnalysisCreate[T foundation.Numeric](
 ) *StatArchRollingAnalysis[T] {
 	return &StatArchRollingAnalysis[T]{
 		Buffer:        buffer,
-		Cache:         make(map[core.StatKind]interface{}),
+		CacheF32:      make(map[core.StatKind]float32),
+		CacheF64:      make(map[core.StatKind]float64),
+		CacheOther:    make(map[core.StatKind]interface{}),
 		AllocFn:       allocFn,
 		WelfordN:      0,
 		WelfordM1:     0,
@@ -154,9 +158,15 @@ Time complexity: O(n) where n is the number of elements in the buffer (recompute
 Space complexity: O(1) - clears existing cache, doesn't allocate new memory
 */
 func StatArchRollingAnalysisInvalidateCache[T foundation.Numeric](analysis *StatArchRollingAnalysis[T]) {
-	// Clear the cache map
-	for k := range analysis.Cache {
-		delete(analysis.Cache, k)
+	// Clear all cache maps
+	for k := range analysis.CacheF32 {
+		delete(analysis.CacheF32, k)
+	}
+	for k := range analysis.CacheF64 {
+		delete(analysis.CacheF64, k)
+	}
+	for k := range analysis.CacheOther {
+		delete(analysis.CacheOther, k)
 	}
 
 	// Recompute Welford state from current buffer contents
@@ -241,19 +251,19 @@ func StatArchRollingVectorMeanF32[T foundation.Numeric](
 ) float32 {
 	StatArchRollingAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindRollingMeanF32]; ok {
-		return cached.(float32)
+	if cached, ok := analysis.CacheF32[core.StatKindRollingMeanF32]; ok {
+		return cached
 	}
 
 	if analysis.WelfordN == 0 {
-		analysis.Cache[core.StatKindRollingMeanF32] = float32(0)
-		analysis.Cache[core.StatKindRollingMeanF64] = float64(0)
+		analysis.CacheF32[core.StatKindRollingMeanF32] = float32(0)
+		analysis.CacheF64[core.StatKindRollingMeanF64] = float64(0)
 		return float32(0)
 	}
 
 	mean := float32(analysis.WelfordM1)
-	analysis.Cache[core.StatKindRollingMeanF32] = mean
-	analysis.Cache[core.StatKindRollingMeanF64] = float64(analysis.WelfordM1)
+	analysis.CacheF32[core.StatKindRollingMeanF32] = mean
+	analysis.CacheF64[core.StatKindRollingMeanF64] = float64(analysis.WelfordM1)
 
 	return mean
 }
@@ -285,19 +295,19 @@ func StatArchRollingVectorMeanF64[T foundation.Numeric](
 ) float64 {
 	StatArchRollingAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindRollingMeanF64]; ok {
-		return cached.(float64)
+	if cached, ok := analysis.CacheF64[core.StatKindRollingMeanF64]; ok {
+		return cached
 	}
 
 	if analysis.WelfordN == 0 {
-		analysis.Cache[core.StatKindRollingMeanF32] = float32(0)
-		analysis.Cache[core.StatKindRollingMeanF64] = float64(0)
+		analysis.CacheF32[core.StatKindRollingMeanF32] = float32(0)
+		analysis.CacheF64[core.StatKindRollingMeanF64] = float64(0)
 		return float64(0)
 	}
 
 	mean := analysis.WelfordM1
-	analysis.Cache[core.StatKindRollingMeanF32] = float32(mean)
-	analysis.Cache[core.StatKindRollingMeanF64] = mean
+	analysis.CacheF32[core.StatKindRollingMeanF32] = float32(mean)
+	analysis.CacheF64[core.StatKindRollingMeanF64] = mean
 
 	return mean
 }
@@ -340,22 +350,22 @@ func StatArchRollingVectorVarianceF32[T foundation.Numeric](
 		kind = core.StatKindRollingVarianceF32Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
-		return cached.(float32)
+	if cached, ok := analysis.CacheF32[kind]; ok {
+		return cached
 	}
 
 	if analysis.WelfordN < 2 && sample {
-		analysis.Cache[kind] = float32(0)
-		analysis.Cache[core.StatKindRollingVarianceF64Sample] = float64(0)
+		analysis.CacheF32[kind] = float32(0)
+		analysis.CacheF64[core.StatKindRollingVarianceF64Sample] = float64(0)
 		return float32(0)
 	}
 
 	if analysis.WelfordN < 1 {
-		analysis.Cache[kind] = float32(0)
+		analysis.CacheF32[kind] = float32(0)
 		if sample {
-			analysis.Cache[core.StatKindRollingVarianceF64Sample] = float64(0)
+			analysis.CacheF64[core.StatKindRollingVarianceF64Sample] = float64(0)
 		} else {
-			analysis.Cache[core.StatKindRollingVarianceF64Population] = float64(0)
+			analysis.CacheF64[core.StatKindRollingVarianceF64Population] = float64(0)
 		}
 		return float32(0)
 	}
@@ -363,12 +373,12 @@ func StatArchRollingVectorVarianceF32[T foundation.Numeric](
 	var variance float64
 	if sample {
 		variance = analysis.WelfordM2 / (analysis.WelfordN - 1)
-		analysis.Cache[core.StatKindRollingVarianceF32Sample] = float32(variance)
-		analysis.Cache[core.StatKindRollingVarianceF64Sample] = variance
+		analysis.CacheF32[core.StatKindRollingVarianceF32Sample] = float32(variance)
+		analysis.CacheF64[core.StatKindRollingVarianceF64Sample] = variance
 	} else {
 		variance = analysis.WelfordM2 / analysis.WelfordN
-		analysis.Cache[core.StatKindRollingVarianceF32Population] = float32(variance)
-		analysis.Cache[core.StatKindRollingVarianceF64Population] = variance
+		analysis.CacheF32[core.StatKindRollingVarianceF32Population] = float32(variance)
+		analysis.CacheF64[core.StatKindRollingVarianceF64Population] = variance
 	}
 
 	return float32(variance)
@@ -412,22 +422,22 @@ func StatArchRollingVectorVarianceF64[T foundation.Numeric](
 		kind = core.StatKindRollingVarianceF64Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
-		return cached.(float64)
+	if cached, ok := analysis.CacheF64[kind]; ok {
+		return cached
 	}
 
 	if analysis.WelfordN < 2 && sample {
-		analysis.Cache[kind] = float64(0)
-		analysis.Cache[core.StatKindRollingVarianceF32Sample] = float32(0)
+		analysis.CacheF64[kind] = float64(0)
+		analysis.CacheF32[core.StatKindRollingVarianceF32Sample] = float32(0)
 		return float64(0)
 	}
 
 	if analysis.WelfordN < 1 {
-		analysis.Cache[kind] = float64(0)
+		analysis.CacheF64[kind] = float64(0)
 		if sample {
-			analysis.Cache[core.StatKindRollingVarianceF32Sample] = float32(0)
+			analysis.CacheF32[core.StatKindRollingVarianceF32Sample] = float32(0)
 		} else {
-			analysis.Cache[core.StatKindRollingVarianceF32Population] = float32(0)
+			analysis.CacheF32[core.StatKindRollingVarianceF32Population] = float32(0)
 		}
 		return float64(0)
 	}
@@ -435,12 +445,12 @@ func StatArchRollingVectorVarianceF64[T foundation.Numeric](
 	var variance float64
 	if sample {
 		variance = analysis.WelfordM2 / (analysis.WelfordN - 1)
-		analysis.Cache[core.StatKindRollingVarianceF32Sample] = float32(variance)
-		analysis.Cache[core.StatKindRollingVarianceF64Sample] = variance
+		analysis.CacheF32[core.StatKindRollingVarianceF32Sample] = float32(variance)
+		analysis.CacheF64[core.StatKindRollingVarianceF64Sample] = variance
 	} else {
 		variance = analysis.WelfordM2 / analysis.WelfordN
-		analysis.Cache[core.StatKindRollingVarianceF32Population] = float32(variance)
-		analysis.Cache[core.StatKindRollingVarianceF64Population] = variance
+		analysis.CacheF32[core.StatKindRollingVarianceF32Population] = float32(variance)
+		analysis.CacheF64[core.StatKindRollingVarianceF64Population] = variance
 	}
 
 	return variance
@@ -484,18 +494,18 @@ func StatArchRollingVectorStandardDeviationF32[T foundation.Numeric](
 		kind = core.StatKindRollingStddevF32Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
-		return cached.(float32)
+	if cached, ok := analysis.CacheF32[kind]; ok {
+		return cached
 	}
 
 	variance := StatArchRollingVectorVarianceF32(analysis, sample)
 	stddev := float32(foundation.Sqrt64(float64(variance)))
 
-	analysis.Cache[kind] = stddev
+	analysis.CacheF32[kind] = stddev
 	if sample {
-		analysis.Cache[core.StatKindRollingStddevF64Sample] = float64(stddev)
+		analysis.CacheF64[core.StatKindRollingStddevF64Sample] = float64(stddev)
 	} else {
-		analysis.Cache[core.StatKindRollingStddevF64Population] = float64(stddev)
+		analysis.CacheF64[core.StatKindRollingStddevF64Population] = float64(stddev)
 	}
 
 	return stddev
@@ -539,18 +549,18 @@ func StatArchRollingVectorStandardDeviationF64[T foundation.Numeric](
 		kind = core.StatKindRollingStddevF64Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
-		return cached.(float64)
+	if cached, ok := analysis.CacheF64[kind]; ok {
+		return cached
 	}
 
 	variance := StatArchRollingVectorVarianceF64(analysis, sample)
 	stddev := foundation.Sqrt64(variance)
 
-	analysis.Cache[kind] = stddev
+	analysis.CacheF64[kind] = stddev
 	if sample {
-		analysis.Cache[core.StatKindRollingStddevF32Sample] = float32(stddev)
+		analysis.CacheF32[core.StatKindRollingStddevF32Sample] = float32(stddev)
 	} else {
-		analysis.Cache[core.StatKindRollingStddevF32Population] = float32(stddev)
+		analysis.CacheF32[core.StatKindRollingStddevF32Population] = float32(stddev)
 	}
 
 	return stddev
@@ -581,17 +591,17 @@ func StatArchRollingVectorMin[T foundation.Numeric](
 ) T {
 	StatArchRollingAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindRollingMin]; ok {
+	if cached, ok := analysis.CacheOther[core.StatKindRollingMin]; ok {
 		return cached.(T)
 	}
 
 	if !analysis.MinMaxValid {
 		var zero T
-		analysis.Cache[core.StatKindRollingMin] = zero
+		analysis.CacheOther[core.StatKindRollingMin] = zero
 		return zero
 	}
 
-	analysis.Cache[core.StatKindRollingMin] = analysis.RollingMin
+	analysis.CacheOther[core.StatKindRollingMin] = analysis.RollingMin
 	return analysis.RollingMin
 }
 
@@ -620,17 +630,17 @@ func StatArchRollingVectorMax[T foundation.Numeric](
 ) T {
 	StatArchRollingAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindRollingMax]; ok {
+	if cached, ok := analysis.CacheOther[core.StatKindRollingMax]; ok {
 		return cached.(T)
 	}
 
 	if !analysis.MinMaxValid {
 		var zero T
-		analysis.Cache[core.StatKindRollingMax] = zero
+		analysis.CacheOther[core.StatKindRollingMax] = zero
 		return zero
 	}
 
-	analysis.Cache[core.StatKindRollingMax] = analysis.RollingMax
+	analysis.CacheOther[core.StatKindRollingMax] = analysis.RollingMax
 	return analysis.RollingMax
 }
 
@@ -659,11 +669,11 @@ func StatArchRollingVectorSum[T foundation.Numeric](
 ) T {
 	StatArchRollingAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindRollingSum]; ok {
+	if cached, ok := analysis.CacheOther[core.StatKindRollingSum]; ok {
 		return cached.(T)
 	}
 
-	analysis.Cache[core.StatKindRollingSum] = analysis.RollingSum
+	analysis.CacheOther[core.StatKindRollingSum] = analysis.RollingSum
 	return analysis.RollingSum
 }
 
@@ -709,33 +719,33 @@ func StatArchRollingVectorSkewnessF32[T foundation.Numeric](
 		kind = core.StatKindRollingSkewnessF32Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
-		return cached.(float32)
+	if cached, ok := analysis.CacheF32[kind]; ok {
+		return cached
 	}
 
 	if analysis.WelfordN < 3 && sample {
-		analysis.Cache[kind] = float32(0)
-		analysis.Cache[core.StatKindRollingSkewnessF64Sample] = float64(0)
+		analysis.CacheF32[kind] = float32(0)
+		analysis.CacheF64[core.StatKindRollingSkewnessF64Sample] = float64(0)
 		return float32(0)
 	}
 
 	if analysis.WelfordN < 2 {
-		analysis.Cache[kind] = float32(0)
+		analysis.CacheF32[kind] = float32(0)
 		if sample {
-			analysis.Cache[core.StatKindRollingSkewnessF64Sample] = float64(0)
+			analysis.CacheF64[core.StatKindRollingSkewnessF64Sample] = float64(0)
 		} else {
-			analysis.Cache[core.StatKindRollingSkewnessF64Population] = float64(0)
+			analysis.CacheF64[core.StatKindRollingSkewnessF64Population] = float64(0)
 		}
 		return float32(0)
 	}
 
 	// Check if M2 is zero (all values identical)
 	if analysis.WelfordM2 == 0 {
-		analysis.Cache[kind] = float32(0)
+		analysis.CacheF32[kind] = float32(0)
 		if sample {
-			analysis.Cache[core.StatKindRollingSkewnessF64Sample] = float64(0)
+			analysis.CacheF64[core.StatKindRollingSkewnessF64Sample] = float64(0)
 		} else {
-			analysis.Cache[core.StatKindRollingSkewnessF64Population] = float64(0)
+			analysis.CacheF64[core.StatKindRollingSkewnessF64Population] = float64(0)
 		}
 		return float32(0)
 	}
@@ -745,14 +755,14 @@ func StatArchRollingVectorSkewnessF32[T foundation.Numeric](
 		// Sample skewness: √(n(n-1))/(n-2) * (M3 / M2^(3/2))
 		// This matches the formula used in AnalyzeWelford for consistency
 		skewness = (foundation.Sqrt64(analysis.WelfordN*(analysis.WelfordN-1)) / (analysis.WelfordN - 2)) * (analysis.WelfordM3 / foundation.Pow64(analysis.WelfordM2, 1.5))
-		analysis.Cache[core.StatKindRollingSkewnessF32Sample] = float32(skewness)
-		analysis.Cache[core.StatKindRollingSkewnessF64Sample] = skewness
+		analysis.CacheF32[core.StatKindRollingSkewnessF32Sample] = float32(skewness)
+		analysis.CacheF64[core.StatKindRollingSkewnessF64Sample] = skewness
 	} else {
 		// Population skewness: M3 * √n / M2^(3/2)
 		// Equivalent to: M3 / ((M2/n)^(3/2) * n) = M3 * n^(1/2) / M2^(3/2)
 		skewness = analysis.WelfordM3 * foundation.Sqrt64(analysis.WelfordN) / foundation.Pow64(analysis.WelfordM2, 1.5)
-		analysis.Cache[core.StatKindRollingSkewnessF32Population] = float32(skewness)
-		analysis.Cache[core.StatKindRollingSkewnessF64Population] = skewness
+		analysis.CacheF32[core.StatKindRollingSkewnessF32Population] = float32(skewness)
+		analysis.CacheF64[core.StatKindRollingSkewnessF64Population] = skewness
 	}
 
 	return float32(skewness)
@@ -777,33 +787,33 @@ func StatArchRollingVectorSkewnessF64[T foundation.Numeric](
 		kind = core.StatKindRollingSkewnessF64Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
-		return cached.(float64)
+	if cached, ok := analysis.CacheF64[kind]; ok {
+		return cached
 	}
 
 	if analysis.WelfordN < 3 && sample {
-		analysis.Cache[kind] = float64(0)
-		analysis.Cache[core.StatKindRollingSkewnessF32Sample] = float32(0)
+		analysis.CacheF64[kind] = float64(0)
+		analysis.CacheF32[core.StatKindRollingSkewnessF32Sample] = float32(0)
 		return float64(0)
 	}
 
 	if analysis.WelfordN < 2 {
-		analysis.Cache[kind] = float64(0)
+		analysis.CacheF64[kind] = float64(0)
 		if sample {
-			analysis.Cache[core.StatKindRollingSkewnessF32Sample] = float32(0)
+			analysis.CacheF32[core.StatKindRollingSkewnessF32Sample] = float32(0)
 		} else {
-			analysis.Cache[core.StatKindRollingSkewnessF32Population] = float32(0)
+			analysis.CacheF32[core.StatKindRollingSkewnessF32Population] = float32(0)
 		}
 		return float64(0)
 	}
 
 	// Check if M2 is zero (all values identical)
 	if analysis.WelfordM2 == 0 {
-		analysis.Cache[kind] = float64(0)
+		analysis.CacheF64[kind] = float64(0)
 		if sample {
-			analysis.Cache[core.StatKindRollingSkewnessF32Sample] = float32(0)
+			analysis.CacheF32[core.StatKindRollingSkewnessF32Sample] = float32(0)
 		} else {
-			analysis.Cache[core.StatKindRollingSkewnessF32Population] = float32(0)
+			analysis.CacheF32[core.StatKindRollingSkewnessF32Population] = float32(0)
 		}
 		return float64(0)
 	}
@@ -813,14 +823,14 @@ func StatArchRollingVectorSkewnessF64[T foundation.Numeric](
 		// Sample skewness: √(n(n-1))/(n-2) * (M3 / M2^(3/2))
 		// This matches the formula used in AnalyzeWelford for consistency
 		skewness = (foundation.Sqrt64(analysis.WelfordN*(analysis.WelfordN-1)) / (analysis.WelfordN - 2)) * (analysis.WelfordM3 / foundation.Pow64(analysis.WelfordM2, 1.5))
-		analysis.Cache[core.StatKindRollingSkewnessF32Sample] = float32(skewness)
-		analysis.Cache[core.StatKindRollingSkewnessF64Sample] = skewness
+		analysis.CacheF32[core.StatKindRollingSkewnessF32Sample] = float32(skewness)
+		analysis.CacheF64[core.StatKindRollingSkewnessF64Sample] = skewness
 	} else {
 		// Population skewness: M3 * √n / M2^(3/2)
 		// Equivalent to: M3 / ((M2/n)^(3/2) * n) = M3 * n^(1/2) / M2^(3/2)
 		skewness = analysis.WelfordM3 * foundation.Sqrt64(analysis.WelfordN) / foundation.Pow64(analysis.WelfordM2, 1.5)
-		analysis.Cache[core.StatKindRollingSkewnessF32Population] = float32(skewness)
-		analysis.Cache[core.StatKindRollingSkewnessF64Population] = skewness
+		analysis.CacheF32[core.StatKindRollingSkewnessF32Population] = float32(skewness)
+		analysis.CacheF64[core.StatKindRollingSkewnessF64Population] = skewness
 	}
 
 	return skewness
@@ -868,33 +878,33 @@ func StatArchRollingVectorKurtosisF32[T foundation.Numeric](
 		kind = core.StatKindRollingKurtosisF32Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
-		return cached.(float32)
+	if cached, ok := analysis.CacheF32[kind]; ok {
+		return cached
 	}
 
 	if analysis.WelfordN < 4 && sample {
-		analysis.Cache[kind] = float32(0)
-		analysis.Cache[core.StatKindRollingKurtosisF64Sample] = float64(0)
+		analysis.CacheF32[kind] = float32(0)
+		analysis.CacheF64[core.StatKindRollingKurtosisF64Sample] = float64(0)
 		return float32(0)
 	}
 
 	if analysis.WelfordN < 3 {
-		analysis.Cache[kind] = float32(0)
+		analysis.CacheF32[kind] = float32(0)
 		if sample {
-			analysis.Cache[core.StatKindRollingKurtosisF64Sample] = float64(0)
+			analysis.CacheF64[core.StatKindRollingKurtosisF64Sample] = float64(0)
 		} else {
-			analysis.Cache[core.StatKindRollingKurtosisF64Population] = float64(0)
+			analysis.CacheF64[core.StatKindRollingKurtosisF64Population] = float64(0)
 		}
 		return float32(0)
 	}
 
 	// Check if M2 is zero (all values identical)
 	if analysis.WelfordM2 == 0 {
-		analysis.Cache[kind] = float32(0)
+		analysis.CacheF32[kind] = float32(0)
 		if sample {
-			analysis.Cache[core.StatKindRollingKurtosisF64Sample] = float64(0)
+			analysis.CacheF64[core.StatKindRollingKurtosisF64Sample] = float64(0)
 		} else {
-			analysis.Cache[core.StatKindRollingKurtosisF64Population] = float64(0)
+			analysis.CacheF64[core.StatKindRollingKurtosisF64Population] = float64(0)
 		}
 		return float32(0)
 	}
@@ -906,14 +916,14 @@ func StatArchRollingVectorKurtosisF32[T foundation.Numeric](
 		term1 := (analysis.WelfordN * (analysis.WelfordN + 1) * (analysis.WelfordN - 1)) / ((analysis.WelfordN - 2) * (analysis.WelfordN - 3))
 		term2 := (3 * (analysis.WelfordN - 1) * (analysis.WelfordN - 1)) / ((analysis.WelfordN - 2) * (analysis.WelfordN - 3))
 		kurtosis = (term1 * analysis.WelfordM4 / (analysis.WelfordM2 * analysis.WelfordM2)) - term2
-		analysis.Cache[core.StatKindRollingKurtosisF32Sample] = float32(kurtosis)
-		analysis.Cache[core.StatKindRollingKurtosisF64Sample] = kurtosis
+		analysis.CacheF32[core.StatKindRollingKurtosisF32Sample] = float32(kurtosis)
+		analysis.CacheF64[core.StatKindRollingKurtosisF64Sample] = kurtosis
 	} else {
 		// Population excess kurtosis: (n * M4 / M2²) - 3
 		// This matches the formula used in AnalyzeWelford for consistency
 		kurtosis = (analysis.WelfordN * analysis.WelfordM4 / (analysis.WelfordM2 * analysis.WelfordM2)) - 3
-		analysis.Cache[core.StatKindRollingKurtosisF32Population] = float32(kurtosis)
-		analysis.Cache[core.StatKindRollingKurtosisF64Population] = kurtosis
+		analysis.CacheF32[core.StatKindRollingKurtosisF32Population] = float32(kurtosis)
+		analysis.CacheF64[core.StatKindRollingKurtosisF64Population] = kurtosis
 	}
 
 	return float32(kurtosis)
@@ -938,33 +948,33 @@ func StatArchRollingVectorKurtosisF64[T foundation.Numeric](
 		kind = core.StatKindRollingKurtosisF64Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
-		return cached.(float64)
+	if cached, ok := analysis.CacheF64[kind]; ok {
+		return cached
 	}
 
 	if analysis.WelfordN < 4 && sample {
-		analysis.Cache[kind] = float64(0)
-		analysis.Cache[core.StatKindRollingKurtosisF32Sample] = float32(0)
+		analysis.CacheF64[kind] = float64(0)
+		analysis.CacheF32[core.StatKindRollingKurtosisF32Sample] = float32(0)
 		return float64(0)
 	}
 
 	if analysis.WelfordN < 3 {
-		analysis.Cache[kind] = float64(0)
+		analysis.CacheF64[kind] = float64(0)
 		if sample {
-			analysis.Cache[core.StatKindRollingKurtosisF32Sample] = float32(0)
+			analysis.CacheF32[core.StatKindRollingKurtosisF32Sample] = float32(0)
 		} else {
-			analysis.Cache[core.StatKindRollingKurtosisF32Population] = float32(0)
+			analysis.CacheF32[core.StatKindRollingKurtosisF32Population] = float32(0)
 		}
 		return float64(0)
 	}
 
 	// Check if M2 is zero (all values identical)
 	if analysis.WelfordM2 == 0 {
-		analysis.Cache[kind] = float64(0)
+		analysis.CacheF64[kind] = float64(0)
 		if sample {
-			analysis.Cache[core.StatKindRollingKurtosisF32Sample] = float32(0)
+			analysis.CacheF32[core.StatKindRollingKurtosisF32Sample] = float32(0)
 		} else {
-			analysis.Cache[core.StatKindRollingKurtosisF32Population] = float32(0)
+			analysis.CacheF32[core.StatKindRollingKurtosisF32Population] = float32(0)
 		}
 		return float64(0)
 	}
@@ -976,14 +986,14 @@ func StatArchRollingVectorKurtosisF64[T foundation.Numeric](
 		term1 := (analysis.WelfordN * (analysis.WelfordN + 1) * (analysis.WelfordN - 1)) / ((analysis.WelfordN - 2) * (analysis.WelfordN - 3))
 		term2 := (3 * (analysis.WelfordN - 1) * (analysis.WelfordN - 1)) / ((analysis.WelfordN - 2) * (analysis.WelfordN - 3))
 		kurtosis = (term1 * analysis.WelfordM4 / (analysis.WelfordM2 * analysis.WelfordM2)) - term2
-		analysis.Cache[core.StatKindRollingKurtosisF32Sample] = float32(kurtosis)
-		analysis.Cache[core.StatKindRollingKurtosisF64Sample] = kurtosis
+		analysis.CacheF32[core.StatKindRollingKurtosisF32Sample] = float32(kurtosis)
+		analysis.CacheF64[core.StatKindRollingKurtosisF64Sample] = kurtosis
 	} else {
 		// Population excess kurtosis: (n * M4 / M2²) - 3
 		// This matches the formula used in AnalyzeWelford for consistency
 		kurtosis = (analysis.WelfordN * analysis.WelfordM4 / (analysis.WelfordM2 * analysis.WelfordM2)) - 3
-		analysis.Cache[core.StatKindRollingKurtosisF32Population] = float32(kurtosis)
-		analysis.Cache[core.StatKindRollingKurtosisF64Population] = kurtosis
+		analysis.CacheF32[core.StatKindRollingKurtosisF32Population] = float32(kurtosis)
+		analysis.CacheF64[core.StatKindRollingKurtosisF64Population] = kurtosis
 	}
 
 	return kurtosis

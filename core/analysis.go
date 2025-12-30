@@ -2,6 +2,7 @@ package core
 
 import (
 	"foundation"
+	"math"
 	"memarch"
 	"memcore"
 	"memstruct"
@@ -128,11 +129,13 @@ are never stale, even in long-running processes or streaming data scenarios.
 type StatArchAnalysis[T foundation.Numeric] struct {
 	Vector memcore.MarkRaw
 
-	// Cached computed values stored as interface{} to support different types (float32, float64, T)
+	// Type-specific caches to avoid convT32/convT64 overhead
 	// Indexed by (StatKind - 1) since StatKind starts at 1
 	// Size is StatKindCount, allocated once at creation
-	// Access through GetCacheValue and SetCacheValue methods
-	cache []interface{}
+	// Access through type-specific GetCacheValue and SetCacheValue methods
+	cacheF32   []float32
+	cacheF64   []float64
+	cacheOther []interface{} // For non-float types (T, uint): Min, Max, Mode, ModeOccurrence
 
 	// Sorted copy of the vector (created on demand for functions that require sorted data)
 	SortedVector  memcore.MarkRaw
@@ -183,9 +186,20 @@ func StatArchAnalysisCreate[T foundation.Numeric](
 	vector memcore.MarkRaw,
 	allocFn func(sizeBytes, alignment uint64) memcore.MarkRaw,
 ) *StatArchAnalysis[T] {
+	cacheF32 := make([]float32, StatKindCount)
+	cacheF64 := make([]float64, StatKindCount)
+	// Initialize with NaN to mark as "not cached"
+	for i := range cacheF32 {
+		cacheF32[i] = float32(math.NaN())
+	}
+	for i := range cacheF64 {
+		cacheF64[i] = math.NaN()
+	}
 	return &StatArchAnalysis[T]{
 		Vector:        vector,
-		cache:         make([]interface{}, StatKindCount),
+		cacheF32:      cacheF32,
+		cacheF64:      cacheF64,
+		cacheOther:    make([]interface{}, StatKindCount),
 		AllocFn:       allocFn,
 		Count:         memstruct.VectorCapacityGet[T](vector),
 		SourceVersion: memstruct.VectorVersionGet[T](vector),
@@ -298,9 +312,17 @@ Time complexity: O(k) where k is the number of cached statistics (typically smal
 Space complexity: O(1) - clears existing cache, doesn't allocate new memory
 */
 func StatArchAnalysisInvalidateCache[T foundation.Numeric](analysis *StatArchAnalysis[T]) {
-	// Clear the cache slice by setting all elements to nil
-	for i := range analysis.cache {
-		analysis.cache[i] = nil
+	// Clear all cache slices
+	// For float32/float64, set to NaN to mark as "not cached"
+	for i := range analysis.cacheF32 {
+		analysis.cacheF32[i] = float32(math.NaN())
+	}
+	for i := range analysis.cacheF64 {
+		analysis.cacheF64[i] = math.NaN()
+	}
+	// For cacheOther, set to nil (interface{} contains pointers)
+	for i := range analysis.cacheOther {
+		analysis.cacheOther[i] = nil
 	}
 
 	// Reset sorted and scratch vector flags
@@ -340,10 +362,93 @@ func StatArchAnalysisValidateVersion[T foundation.Numeric](analysis *StatArchAna
 }
 
 /*
-StatArchAnalysisGetCacheValue retrieves a cached value by StatKind.
+StatArchAnalysisGetCacheValueF32 retrieves a cached float32 value by StatKind.
+
+Returns the value and true if cached, 0 and false otherwise.
+This method handles the index conversion (StatKind - 1) internally.
+Direct access without type assertion overhead.
+Uses NaN as a sentinel value to mark "not cached".
+
+Time complexity: O(1)
+Space complexity: O(1)
+*/
+func StatArchAnalysisGetCacheValueF32[T foundation.Numeric](analysis *StatArchAnalysis[T], kind StatKind) (float32, bool) {
+	if kind < 1 || kind > StatKindCount {
+		return 0, false
+	}
+	idx := kind - 1
+	val := analysis.cacheF32[idx]
+	// Check if value is NaN (not cached)
+	if math.IsNaN(float64(val)) {
+		return 0, false
+	}
+	return val, true
+}
+
+/*
+StatArchAnalysisGetCacheValueF64 retrieves a cached float64 value by StatKind.
+
+Returns the value and true if cached, 0 and false otherwise.
+This method handles the index conversion (StatKind - 1) internally.
+Direct access without type assertion overhead.
+Uses NaN as a sentinel value to mark "not cached".
+
+Time complexity: O(1)
+Space complexity: O(1)
+*/
+func StatArchAnalysisGetCacheValueF64[T foundation.Numeric](analysis *StatArchAnalysis[T], kind StatKind) (float64, bool) {
+	if kind < 1 || kind > StatKindCount {
+		return 0, false
+	}
+	idx := kind - 1
+	val := analysis.cacheF64[idx]
+	// Check if value is NaN (not cached)
+	if math.IsNaN(val) {
+		return 0, false
+	}
+	return val, true
+}
+
+/*
+StatArchAnalysisSetCacheValueF32 sets a cached float32 value by StatKind.
+
+This method handles the index conversion (StatKind - 1) internally.
+Direct assignment without type assertion overhead.
+
+Time complexity: O(1)
+Space complexity: O(1)
+*/
+func StatArchAnalysisSetCacheValueF32[T foundation.Numeric](analysis *StatArchAnalysis[T], kind StatKind, value float32) {
+	if kind < 1 || kind > StatKindCount {
+		return
+	}
+	idx := kind - 1
+	analysis.cacheF32[idx] = value
+}
+
+/*
+StatArchAnalysisSetCacheValueF64 sets a cached float64 value by StatKind.
+
+This method handles the index conversion (StatKind - 1) internally.
+Direct assignment without type assertion overhead.
+
+Time complexity: O(1)
+Space complexity: O(1)
+*/
+func StatArchAnalysisSetCacheValueF64[T foundation.Numeric](analysis *StatArchAnalysis[T], kind StatKind, value float64) {
+	if kind < 1 || kind > StatKindCount {
+		return
+	}
+	idx := kind - 1
+	analysis.cacheF64[idx] = value
+}
+
+/*
+StatArchAnalysisGetCacheValue retrieves a cached value by StatKind from cacheOther.
 
 Returns the value and true if cached, nil and false otherwise.
 This method handles the index conversion (StatKind - 1) internally.
+Used for non-float types (T, uint).
 
 Time complexity: O(1)
 Space complexity: O(1)
@@ -353,14 +458,15 @@ func StatArchAnalysisGetCacheValue[T foundation.Numeric](analysis *StatArchAnaly
 		return nil, false
 	}
 	idx := kind - 1
-	val := analysis.cache[idx]
+	val := analysis.cacheOther[idx]
 	return val, val != nil
 }
 
 /*
-StatArchAnalysisSetCacheValue sets a cached value by StatKind.
+StatArchAnalysisSetCacheValue sets a cached value by StatKind in cacheOther.
 
 This method handles the index conversion (StatKind - 1) internally.
+Used for non-float types (T, uint).
 
 Time complexity: O(1)
 Space complexity: O(1)
@@ -370,7 +476,7 @@ func StatArchAnalysisSetCacheValue[T foundation.Numeric](analysis *StatArchAnaly
 		return
 	}
 	idx := kind - 1
-	analysis.cache[idx] = value
+	analysis.cacheOther[idx] = value
 }
 
 /*
@@ -412,10 +518,17 @@ func StatArchAnalysisReset[T foundation.Numeric](
 	analysis *StatArchAnalysis[T],
 	vector memcore.MarkRaw,
 ) {
-	// Clear cache slice efficiently using runtime's optimized memclr
-	// Since interface{} values contain pointers, we use memclrHasPointers
-	if len(analysis.cache) > 0 {
-		memclrHasPointers(unsafe.Pointer(&analysis.cache[0]), uintptr(len(analysis.cache))*unsafe.Sizeof(analysis.cache[0]))
+	// Clear cache slices efficiently
+	// For float32/float64, set to NaN to mark as "not cached"
+	for i := range analysis.cacheF32 {
+		analysis.cacheF32[i] = float32(math.NaN())
+	}
+	for i := range analysis.cacheF64 {
+		analysis.cacheF64[i] = math.NaN()
+	}
+	// For cacheOther, use memclrHasPointers (interface{} contains pointers)
+	if len(analysis.cacheOther) > 0 {
+		memclrHasPointers(unsafe.Pointer(&analysis.cacheOther[0]), uintptr(len(analysis.cacheOther))*unsafe.Sizeof(analysis.cacheOther[0]))
 	}
 
 	// Reset sorted and scratch vector flags
@@ -435,6 +548,10 @@ func StatArchAnalysisReset[T foundation.Numeric](
 //go:nosplit
 func memclrHasPointers(ptr unsafe.Pointer, n uintptr)
 
+//go:linkname memclrNoHeapPointers runtime.memclrNoHeapPointers
+//go:nosplit
+func memclrNoHeapPointers(ptr unsafe.Pointer, n uintptr)
+
 /*
 WithMeanF32 sets the cached mean value in float32 precision.
 
@@ -444,7 +561,7 @@ Time complexity: O(1) - map insertion is constant-time
 Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithMeanF32(mean float32) *StatArchAnalysis[T] {
-	StatArchAnalysisSetCacheValue(a, StatKindMeanF32, mean)
+	StatArchAnalysisSetCacheValueF32(a, StatKindMeanF32, mean)
 	return a
 }
 
@@ -457,7 +574,7 @@ Time complexity: O(1) - map insertion is constant-time
 Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithMeanF64(mean float64) *StatArchAnalysis[T] {
-	StatArchAnalysisSetCacheValue(a, StatKindMeanF64, mean)
+	StatArchAnalysisSetCacheValueF64(a, StatKindMeanF64, mean)
 	return a
 }
 
@@ -470,7 +587,7 @@ Time complexity: O(1) - map insertion is constant-time
 Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithSumF32(sum float32) *StatArchAnalysis[T] {
-	StatArchAnalysisSetCacheValue(a, StatKindSumF32, sum)
+	StatArchAnalysisSetCacheValueF32(a, StatKindSumF32, sum)
 	return a
 }
 
@@ -483,7 +600,7 @@ Time complexity: O(1) - map insertion is constant-time
 Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithSumF64(sum float64) *StatArchAnalysis[T] {
-	StatArchAnalysisSetCacheValue(a, StatKindSumF64, sum)
+	StatArchAnalysisSetCacheValueF64(a, StatKindSumF64, sum)
 	return a
 }
 
@@ -496,7 +613,7 @@ Time complexity: O(1) - map insertion is constant-time
 Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithNormSquaredF32(normSquared float32) *StatArchAnalysis[T] {
-	StatArchAnalysisSetCacheValue(a, StatKindNormSquaredF32, normSquared)
+	StatArchAnalysisSetCacheValueF32(a, StatKindNormSquaredF32, normSquared)
 	return a
 }
 
@@ -509,7 +626,7 @@ Time complexity: O(1) - map insertion is constant-time
 Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithNormSquaredF64(normSquared float64) *StatArchAnalysis[T] {
-	StatArchAnalysisSetCacheValue(a, StatKindNormSquaredF64, normSquared)
+	StatArchAnalysisSetCacheValueF64(a, StatKindNormSquaredF64, normSquared)
 	return a
 }
 
@@ -527,9 +644,9 @@ Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithVarianceF32(variance float32, sample bool) *StatArchAnalysis[T] {
 	if sample {
-		StatArchAnalysisSetCacheValue(a, StatKindVarianceF32Sample, variance)
+		StatArchAnalysisSetCacheValueF32(a, StatKindVarianceF32Sample, variance)
 	} else {
-		StatArchAnalysisSetCacheValue(a, StatKindVarianceF32Population, variance)
+		StatArchAnalysisSetCacheValueF32(a, StatKindVarianceF32Population, variance)
 	}
 	return a
 }
@@ -548,9 +665,9 @@ Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithVarianceF64(variance float64, sample bool) *StatArchAnalysis[T] {
 	if sample {
-		StatArchAnalysisSetCacheValue(a, StatKindVarianceF64Sample, variance)
+		StatArchAnalysisSetCacheValueF64(a, StatKindVarianceF64Sample, variance)
 	} else {
-		StatArchAnalysisSetCacheValue(a, StatKindVarianceF64Population, variance)
+		StatArchAnalysisSetCacheValueF64(a, StatKindVarianceF64Population, variance)
 	}
 	return a
 }
@@ -569,9 +686,9 @@ Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithStandardDeviationF32(stddev float32, sample bool) *StatArchAnalysis[T] {
 	if sample {
-		StatArchAnalysisSetCacheValue(a, StatKindStddevF32Sample, stddev)
+		StatArchAnalysisSetCacheValueF32(a, StatKindStddevF32Sample, stddev)
 	} else {
-		StatArchAnalysisSetCacheValue(a, StatKindStddevF32Population, stddev)
+		StatArchAnalysisSetCacheValueF32(a, StatKindStddevF32Population, stddev)
 	}
 	return a
 }
@@ -590,9 +707,9 @@ Space complexity: O(1) - stores single value in existing cache map
 */
 func (a *StatArchAnalysis[T]) WithStandardDeviationF64(stddev float64, sample bool) *StatArchAnalysis[T] {
 	if sample {
-		StatArchAnalysisSetCacheValue(a, StatKindStddevF64Sample, stddev)
+		StatArchAnalysisSetCacheValueF64(a, StatKindStddevF64Sample, stddev)
 	} else {
-		StatArchAnalysisSetCacheValue(a, StatKindStddevF64Population, stddev)
+		StatArchAnalysisSetCacheValueF64(a, StatKindStddevF64Population, stddev)
 	}
 	return a
 }
