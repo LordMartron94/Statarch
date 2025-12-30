@@ -136,11 +136,12 @@ type StatArchAnalysis[T foundation.Numeric] struct {
 	cacheF64   []float64
 	cacheOther []interface{} // For non-float types (T, uint): Min, Max, Mode, ModeOccurrence
 
-	// Validity bitmasks to track which cache entries are valid (needed to distinguish 0.0 from "not cached")
+	// Validity bitmasks to track which cache entries are valid (needed to distinguish 0.0/nil from "not cached")
 	// Each bit represents whether the corresponding cache entry is valid
 	// We need 2 uint64s to cover StatKindCount (96) entries
-	cacheF32Valid [2]uint64
-	cacheF64Valid [2]uint64
+	cacheF32Valid   [2]uint64
+	cacheF64Valid   [2]uint64
+	cacheOtherValid [2]uint64
 
 	// Sorted copy of the vector (created on demand for functions that require sorted data)
 	SortedVector  memcore.MarkRaw
@@ -302,22 +303,20 @@ func GetScratchVectorF64[T foundation.Numeric](analysis *StatArchAnalysis[T]) me
 StatArchAnalysisInvalidateCache clears all cached statistics and resets the analysis structure.
 
 This function is called when the underlying vector has been modified (version mismatch detected).
-It clears the cache map, resets all scratch/sorted vector flags, and updates SourceVersion
+It clears all validity bitmasks, resets all scratch/sorted vector flags, and updates SourceVersion
 to the current vector version.
 
-Time complexity: O(k) where k is the number of cached statistics (typically small)
-Space complexity: O(1) - clears existing cache, doesn't allocate new memory
+Time complexity: O(1) - constant time, just clears validity bitmasks
+Space complexity: O(1) - clears existing cache validity, doesn't allocate new memory
 */
 func StatArchAnalysisInvalidateCache[T foundation.Numeric](analysis *StatArchAnalysis[T]) {
-	// Clear validity bitmasks
+	// Clear all validity bitmasks (constant time - just 6 assignments)
 	analysis.cacheF32Valid[0] = 0
 	analysis.cacheF32Valid[1] = 0
 	analysis.cacheF64Valid[0] = 0
 	analysis.cacheF64Valid[1] = 0
-
-	if len(analysis.cacheOther) > 0 {
-		memclrHasPointers(unsafe.Pointer(&analysis.cacheOther[0]), uintptr(len(analysis.cacheOther))*unsafe.Sizeof(analysis.cacheOther[0]))
-	}
+	analysis.cacheOtherValid[0] = 0
+	analysis.cacheOtherValid[1] = 0
 
 	analysis.SortedCreated = false
 	analysis.ScratchCreated = false
@@ -330,18 +329,18 @@ func StatArchAnalysisInvalidateCache[T foundation.Numeric](analysis *StatArchAna
 /*
 StatArchAnalysisReset resets an analysis structure to be reused with a new vector.
 
-This function clears the cache map (reusing the existing map to avoid allocations),
-resets all scratch/sorted vector flags, and updates the vector reference, count, and
-source version. The AllocFn is preserved. This allows reusing a single analysis object
-across multiple vectors in hot loops, eliminating expensive allocations.
+This function clears all validity bitmasks (via InvalidateCache), resets all scratch/sorted
+vector flags, and updates the vector reference, count, and source version. The AllocFn is
+preserved. This allows reusing a single analysis object across multiple vectors in hot loops,
+eliminating expensive allocations.
 
 Use cases:
 - Reusing analysis objects in hot loops (e.g., similarity search over many vectors)
 - Avoiding allocations when processing multiple vectors sequentially
 - Performance optimization in batch operations
 
-Time complexity: O(k) where k is the number of cached statistics (typically small)
-Space complexity: O(1) - reuses existing cache map, no new allocations
+Time complexity: O(1) - constant time, just clears validity bitmasks
+Space complexity: O(1) - reuses existing cache arrays, no new allocations
 
 Parameters:
 - analysis: The analysis structure to reset (must be previously created)
@@ -502,6 +501,7 @@ StatArchAnalysisGetCacheValue retrieves a cached value by StatKind from cacheOth
 Returns the value and true if cached, nil and false otherwise.
 This method handles the index conversion (StatKind - 1) internally.
 Used for non-float types (T, uint).
+Uses validity bitmask to track which entries are cached.
 
 Time complexity: O(1)
 Space complexity: O(1)
@@ -511,8 +511,13 @@ func StatArchAnalysisGetCacheValue[T foundation.Numeric](analysis *StatArchAnaly
 		return nil, false
 	}
 	idx := kind - 1
-	val := analysis.cacheOther[idx]
-	return val, val != nil
+	// Check validity bitmask
+	bitIdx := idx / 64
+	bitPos := idx % 64
+	if bitIdx < 2 && (analysis.cacheOtherValid[bitIdx]&(1<<bitPos)) == 0 {
+		return nil, false
+	}
+	return analysis.cacheOther[idx], true
 }
 
 /*
@@ -520,6 +525,7 @@ StatArchAnalysisSetCacheValue sets a cached value by StatKind in cacheOther.
 
 This method handles the index conversion (StatKind - 1) internally.
 Used for non-float types (T, uint).
+Uses validity bitmask to track which entries are cached.
 
 Time complexity: O(1)
 Space complexity: O(1)
@@ -530,6 +536,12 @@ func StatArchAnalysisSetCacheValue[T foundation.Numeric](analysis *StatArchAnaly
 	}
 	idx := kind - 1
 	analysis.cacheOther[idx] = value
+	// Set validity bit
+	bitIdx := idx / 64
+	bitPos := idx % 64
+	if bitIdx < 2 {
+		analysis.cacheOtherValid[bitIdx] |= 1 << bitPos
+	}
 }
 
 //go:linkname memclrHasPointers runtime.memclrHasPointers
