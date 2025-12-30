@@ -77,6 +77,11 @@ Descriptive statistics operations that summarize data characteristics.
 - `StatArchDescriptiveVectorMeanF32` / `StatArchDescriptiveVectorMeanF64` - Calculate arithmetic mean (cached)
 - `StatArchDescriptiveVectorHarmonicMeanF32` / `StatArchDescriptiveVectorHarmonicMeanF64` - Calculate harmonic mean (cached, for rates/ratios)
 - `StatArchDescriptiveVectorGeometricMeanF32` / `StatArchDescriptiveVectorGeometricMeanF64` - Calculate geometric mean (cached, for multiplicative processes)
+
+**Pre-requisites (Cached for Reuse):**
+
+- `StatArchDescriptiveVectorSumF32` / `StatArchDescriptiveVectorSumF64` - Calculate vector sum (cached, used by distance functions)
+- `StatArchDescriptiveVectorNormSquaredF32` / `StatArchDescriptiveVectorNormSquaredF64` - Calculate sum of squares / norm squared (cached, used by cosine similarity)
 - `StatArchDescriptiveVectorTrimmedMeanF32` / `StatArchDescriptiveVectorTrimmedMeanF64` - Calculate trimmed mean (robust to outliers, not cached due to continuous trim parameter)
 - `StatArchDescriptiveVectorMedianF32` / `StatArchDescriptiveVectorMedianF64` - Calculate median (cached, handles sorting internally)
 - `StatArchDescriptiveVectorMode` - Calculate mode (cached, handles sorting internally)
@@ -299,14 +304,14 @@ All functions accept `StatArchAnalysis` structures and use cached values (means,
   - Formula: r = cov(X,Y) / (σX * σY)
   
 - `StatArchCorrelationVectorSpearmanF32` / `StatArchCorrelationVectorSpearmanF64` - Compute Spearman rank correlation (monotonic relationship, -1 to +1)
-  - Accepts raw vectors (not analysis structures) since ranking requires scratch vectors
-  - Requires `allocFn` for creating scratch vectors for ranking
+  - Accepts analysis structures and uses their allocFn for creating scratch vectors for ranking
   - Handles ties by assigning average ranks
   - **Performance:** Uses O(n log n) quicksort with a single Array of rankEntry structs that bind values with their original indices. Optimal performance for all dataset sizes.
   
 - `StatArchCorrelationVectorCosineSimilarityF32` / `StatArchCorrelationVectorCosineSimilarityF64` - Compute cosine similarity (directional similarity, -1 to +1)
-  - Accepts raw vectors (not analysis structures) since it only needs dot product and norms
+  - Accepts analysis structures and uses cached norm squared values if available
   - Formula: cos(θ) = (A · B) / (||A|| * ||B||)
+  - Norm squared values are automatically cached in the analysis structure for reuse
   
 - `StatArchCorrelationVectorAutocorrelationF32` / `StatArchCorrelationVectorAutocorrelationF64` - Compute autocorrelation at a given lag (serial correlation, -1 to +1)
   - Accepts analysis structure and lag parameter
@@ -333,11 +338,11 @@ covariance := correlation.StatArchCorrelationVectorCovarianceF64(analysisA, anal
 // Compute Pearson correlation (uses cached means and stddev if available)
 pearson := correlation.StatArchCorrelationVectorPearsonF64(analysisA, analysisB, true)
 
-// Compute Spearman correlation (requires raw vectors and allocFn for ranking)
-spearman := correlation.StatArchCorrelationVectorSpearmanF64[float64](vectorA, vectorB, allocFn)
+// Compute Spearman correlation (uses analysis structures, allocFn from analysis)
+spearman := correlation.StatArchCorrelationVectorSpearmanF64(analysisA, analysisB)
 
-// Compute cosine similarity (uses raw vectors)
-cosine := correlation.StatArchCorrelationVectorCosineSimilarityF64[float64](vectorA, vectorB)
+// Compute cosine similarity (uses analysis structures, norms are cached)
+cosine := correlation.StatArchCorrelationVectorCosineSimilarityF64(analysisA, analysisB)
 
 // Compute autocorrelation at lag 1 (correlation with itself shifted by 1 position)
 autocorrLag1 := correlation.StatArchCorrelationVectorAutocorrelationF64(analysisA, 1, true)
@@ -349,7 +354,7 @@ autocorrLag5 := correlation.StatArchCorrelationVectorAutocorrelationF64(analysis
 
 Distance and divergence measures between probability distributions.
 
-All functions accept `StatArchAnalysis` structures. The distance results themselves are not cached since they are computed between two vectors.
+All functions accept `StatArchAnalysis` structures and use cached sums if available, avoiding redundant computations. The distance results themselves are not cached since they are computed between two vectors.
 
 **Functions:**
 

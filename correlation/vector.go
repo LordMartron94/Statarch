@@ -290,6 +290,9 @@ StatArchCorrelationVectorSpearmanF32 computes the Spearman rank correlation coef
 Spearman correlation measures the monotonic relationship between two variables using their ranks.
 It is more robust to outliers than Pearson correlation and detects non-linear monotonic relationships.
 
+This function accepts StatArchAnalysis structures and uses their allocFn for creating scratch vectors.
+The correlation result itself is not cached since it's computed between two vectors.
+
 Use cases:
 - Measuring monotonic relationships (not just linear)
 - Robust correlation when data has outliers
@@ -302,7 +305,6 @@ Space complexity: O(n) - requires scratch vectors for ranking
 Prerequisites:
 - Both vectors must have the same length
 - Both vectors must contain at least 2 elements
-- allocFn must be provided for creating scratch vectors
 - Vectors do not need to be sorted
 
 Edge cases:
@@ -316,12 +318,14 @@ with their original indices. This approach sorts once using O(n log n) quicksort
 ranks linearly. Ranks both vectors, then computes Pearson correlation on ranks.
 */
 func StatArchCorrelationVectorSpearmanF32[T foundation.Numeric](
-	vectorA memcore.MarkRaw,
-	vectorB memcore.MarkRaw,
-	allocFn func(sizeBytes, alignment uint64) memcore.MarkRaw,
+	analysisA *core.StatArchAnalysis[T],
+	analysisB *core.StatArchAnalysis[T],
 ) float32 {
-	sizeA := memstruct.VectorCapacityGet[T](vectorA)
-	sizeB := memstruct.VectorCapacityGet[T](vectorB)
+	core.StatArchAnalysisValidateVersion(analysisA)
+	core.StatArchAnalysisValidateVersion(analysisB)
+
+	sizeA := analysisA.Count
+	sizeB := analysisB.Count
 
 	if sizeA != sizeB {
 		panic("vectors must have the same length")
@@ -330,19 +334,19 @@ func StatArchCorrelationVectorSpearmanF32[T foundation.Numeric](
 		panic("cannot compute Spearman correlation with less than 2 elements")
 	}
 
-	// Create scratch vectors for ranks
-	rankVectorA, _ := memarch.MemArchVectorCreate[float32](allocFn, sizeA)
-	rankVectorB, _ := memarch.MemArchVectorCreate[float32](allocFn, sizeB)
+	// Create scratch vectors for ranks using analysis allocFn
+	rankVectorA, _ := memarch.MemArchVectorCreate[float32](analysisA.AllocFn, sizeA)
+	rankVectorB, _ := memarch.MemArchVectorCreate[float32](analysisB.AllocFn, sizeB)
 
 	// Rank vector A
-	rankVectorF32[T](rankVectorA, vectorA, sizeA, allocFn)
+	rankVectorF32[T](rankVectorA, analysisA.Vector, sizeA, analysisA.AllocFn)
 
 	// Rank vector B
-	rankVectorF32[T](rankVectorB, vectorB, sizeB, allocFn)
+	rankVectorF32[T](rankVectorB, analysisB.Vector, sizeB, analysisB.AllocFn)
 
 	// Create analysis structures for rank vectors
-	rankAnalysisA := core.StatArchAnalysisCreate[float32](rankVectorA, allocFn)
-	rankAnalysisB := core.StatArchAnalysisCreate[float32](rankVectorB, allocFn)
+	rankAnalysisA := core.StatArchAnalysisCreate[float32](rankVectorA, analysisA.AllocFn)
+	rankAnalysisB := core.StatArchAnalysisCreate[float32](rankVectorB, analysisB.AllocFn)
 
 	// Compute Pearson correlation on ranks
 	return StatArchCorrelationVectorPearsonF32(rankAnalysisA, rankAnalysisB, true)
@@ -353,6 +357,9 @@ StatArchCorrelationVectorSpearmanF64 computes the Spearman rank correlation coef
 
 Spearman correlation measures the monotonic relationship between two variables using their ranks.
 It is more robust to outliers than Pearson correlation and detects non-linear monotonic relationships.
+
+This function accepts StatArchAnalysis structures and uses their allocFn for creating scratch vectors.
+The correlation result itself is not cached since it's computed between two vectors.
 
 Use cases:
 - Measuring monotonic relationships (not just linear)
@@ -366,7 +373,6 @@ Space complexity: O(n) - requires scratch vectors for ranking
 Prerequisites:
 - Both vectors must have the same length
 - Both vectors must contain at least 2 elements
-- allocFn must be provided for creating scratch vectors
 - Vectors do not need to be sorted
 
 Edge cases:
@@ -380,12 +386,14 @@ with their original indices. This approach sorts once using O(n log n) quicksort
 ranks linearly. Ranks both vectors, then computes Pearson correlation on ranks.
 */
 func StatArchCorrelationVectorSpearmanF64[T foundation.Numeric](
-	vectorA memcore.MarkRaw,
-	vectorB memcore.MarkRaw,
-	allocFn func(sizeBytes, alignment uint64) memcore.MarkRaw,
+	analysisA *core.StatArchAnalysis[T],
+	analysisB *core.StatArchAnalysis[T],
 ) float64 {
-	sizeA := memstruct.VectorCapacityGet[T](vectorA)
-	sizeB := memstruct.VectorCapacityGet[T](vectorB)
+	core.StatArchAnalysisValidateVersion(analysisA)
+	core.StatArchAnalysisValidateVersion(analysisB)
+
+	sizeA := analysisA.Count
+	sizeB := analysisB.Count
 
 	if sizeA != sizeB {
 		panic("vectors must have the same length")
@@ -394,19 +402,19 @@ func StatArchCorrelationVectorSpearmanF64[T foundation.Numeric](
 		panic("cannot compute Spearman correlation with less than 2 elements")
 	}
 
-	// Create scratch vectors for ranks
-	rankVectorA, _ := memarch.MemArchVectorCreate[float64](allocFn, sizeA)
-	rankVectorB, _ := memarch.MemArchVectorCreate[float64](allocFn, sizeB)
+	// Create scratch vectors for ranks using analysis allocFn
+	rankVectorA, _ := memarch.MemArchVectorCreate[float64](analysisA.AllocFn, sizeA)
+	rankVectorB, _ := memarch.MemArchVectorCreate[float64](analysisB.AllocFn, sizeB)
 
 	// Rank vector A
-	rankVectorF64[T](rankVectorA, vectorA, sizeA, allocFn)
+	rankVectorF64[T](rankVectorA, analysisA.Vector, sizeA, analysisA.AllocFn)
 
 	// Rank vector B
-	rankVectorF64[T](rankVectorB, vectorB, sizeB, allocFn)
+	rankVectorF64[T](rankVectorB, analysisB.Vector, sizeB, analysisB.AllocFn)
 
 	// Create analysis structures for rank vectors
-	rankAnalysisA := core.StatArchAnalysisCreate[float64](rankVectorA, allocFn)
-	rankAnalysisB := core.StatArchAnalysisCreate[float64](rankVectorB, allocFn)
+	rankAnalysisA := core.StatArchAnalysisCreate[float64](rankVectorA, analysisA.AllocFn)
+	rankAnalysisB := core.StatArchAnalysisCreate[float64](rankVectorB, analysisB.AllocFn)
 
 	// Compute Pearson correlation on ranks
 	return StatArchCorrelationVectorPearsonF64(rankAnalysisA, rankAnalysisB, true)
@@ -566,6 +574,10 @@ StatArchCorrelationVectorCosineSimilarityF32 computes the cosine similarity betw
 Cosine similarity measures the cosine of the angle between two vectors, indicating their directional similarity.
 It is commonly used for high-dimensional data and text analysis.
 
+This function accepts StatArchAnalysis structures and uses cached norm squared values if available,
+avoiding redundant computations. The similarity result itself is not cached since it's computed
+between two vectors.
+
 Use cases:
 - Text similarity (document vectors, word embeddings)
 - Recommendation systems (user/item similarity)
@@ -588,11 +600,14 @@ Edge cases:
 Formula: cos(θ) = (A · B) / (||A|| * ||B||)
 */
 func StatArchCorrelationVectorCosineSimilarityF32[T foundation.Numeric](
-	vectorA memcore.MarkRaw,
-	vectorB memcore.MarkRaw,
+	analysisA *core.StatArchAnalysis[T],
+	analysisB *core.StatArchAnalysis[T],
 ) float32 {
-	sizeA := memstruct.VectorCapacityGet[T](vectorA)
-	sizeB := memstruct.VectorCapacityGet[T](vectorB)
+	core.StatArchAnalysisValidateVersion(analysisA)
+	core.StatArchAnalysisValidateVersion(analysisB)
+
+	sizeA := analysisA.Count
+	sizeB := analysisB.Count
 
 	if sizeA != sizeB {
 		panic("vectors must have the same length")
@@ -601,10 +616,9 @@ func StatArchCorrelationVectorCosineSimilarityF32[T foundation.Numeric](
 		panic("cannot compute cosine similarity with empty vectors")
 	}
 
-	// Compute dot product and norms using Blaze
-	dotProduct := reduce.BlazeReduceDotProductF32[T, T](vectorA, vectorB)
-	normASq := reduce.BlazeReduceVectorSumSquaredF32[T](vectorA)
-	normBSq := reduce.BlazeReduceVectorSumSquaredF32[T](vectorB)
+	// Use cached norm squared values if available, otherwise compute and cache
+	normASq := descriptive.StatArchDescriptiveVectorNormSquaredF32(analysisA)
+	normBSq := descriptive.StatArchDescriptiveVectorNormSquaredF32(analysisB)
 
 	normA := foundation.Sqrt32(normASq)
 	normB := foundation.Sqrt32(normBSq)
@@ -612,6 +626,9 @@ func StatArchCorrelationVectorCosineSimilarityF32[T foundation.Numeric](
 	if normA == 0 || normB == 0 {
 		panic("vector norm is 0, cannot compute cosine similarity")
 	}
+
+	// Compute dot product using Blaze (no caching needed as it's between two vectors)
+	dotProduct := reduce.BlazeReduceDotProductF32[T, T](analysisA.Vector, analysisB.Vector)
 
 	return dotProduct / (normA * normB)
 }
@@ -621,6 +638,10 @@ StatArchCorrelationVectorCosineSimilarityF64 computes the cosine similarity betw
 
 Cosine similarity measures the cosine of the angle between two vectors, indicating their directional similarity.
 It is commonly used for high-dimensional data and text analysis.
+
+This function accepts StatArchAnalysis structures and uses cached norm squared values if available,
+avoiding redundant computations. The similarity result itself is not cached since it's computed
+between two vectors.
 
 Use cases:
 - Text similarity (document vectors, word embeddings)
@@ -644,11 +665,14 @@ Edge cases:
 Formula: cos(θ) = (A · B) / (||A|| * ||B||)
 */
 func StatArchCorrelationVectorCosineSimilarityF64[T foundation.Numeric](
-	vectorA memcore.MarkRaw,
-	vectorB memcore.MarkRaw,
+	analysisA *core.StatArchAnalysis[T],
+	analysisB *core.StatArchAnalysis[T],
 ) float64 {
-	sizeA := memstruct.VectorCapacityGet[T](vectorA)
-	sizeB := memstruct.VectorCapacityGet[T](vectorB)
+	core.StatArchAnalysisValidateVersion(analysisA)
+	core.StatArchAnalysisValidateVersion(analysisB)
+
+	sizeA := analysisA.Count
+	sizeB := analysisB.Count
 
 	if sizeA != sizeB {
 		panic("vectors must have the same length")
@@ -657,10 +681,9 @@ func StatArchCorrelationVectorCosineSimilarityF64[T foundation.Numeric](
 		panic("cannot compute cosine similarity with empty vectors")
 	}
 
-	// Compute dot product and norms using Blaze
-	dotProduct := reduce.BlazeReduceDotProductF64[T, T](vectorA, vectorB)
-	normASq := reduce.BlazeReduceVectorSumSquaredF64[T](vectorA)
-	normBSq := reduce.BlazeReduceVectorSumSquaredF64[T](vectorB)
+	// Use cached norm squared values if available, otherwise compute and cache
+	normASq := descriptive.StatArchDescriptiveVectorNormSquaredF64(analysisA)
+	normBSq := descriptive.StatArchDescriptiveVectorNormSquaredF64(analysisB)
 
 	normA := foundation.Sqrt64(normASq)
 	normB := foundation.Sqrt64(normBSq)
@@ -668,6 +691,9 @@ func StatArchCorrelationVectorCosineSimilarityF64[T foundation.Numeric](
 	if normA == 0 || normB == 0 {
 		panic("vector norm is 0, cannot compute cosine similarity")
 	}
+
+	// Compute dot product using Blaze (no caching needed as it's between two vectors)
+	dotProduct := reduce.BlazeReduceDotProductF64[T, T](analysisA.Vector, analysisB.Vector)
 
 	return dotProduct / (normA * normB)
 }

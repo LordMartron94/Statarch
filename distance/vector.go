@@ -1,10 +1,10 @@
 package distance
 
 import (
-	"blaze/reduce"
 	"foundation"
 	"memstruct"
 	"statarch/core"
+	"statarch/descriptive"
 )
 
 /*
@@ -67,9 +67,9 @@ func StatArchDistanceVectorBhattacharyyaF32[T foundation.Numeric](
 		}
 	}, core.StatarchDefaultStride)
 
-	// Compute sums using Blaze (could be cached in future if sum is added to cache)
-	sumA := reduce.BlazeReduceVectorSumF32[T](analysisA.Vector)
-	sumB := reduce.BlazeReduceVectorSumF32[T](analysisB.Vector)
+	// Use cached sums if available, otherwise compute and cache
+	sumA := descriptive.StatArchDescriptiveVectorSumF32(analysisA)
+	sumB := descriptive.StatArchDescriptiveVectorSumF32(analysisB)
 
 	if sumA == 0 || sumB == 0 {
 		panic("cannot compute Bhattacharyya distance: vector sum is 0")
@@ -151,9 +151,9 @@ func StatArchDistanceVectorBhattacharyyaF64[T foundation.Numeric](
 		}
 	}, core.StatarchDefaultStride)
 
-	// Compute sums using Blaze (could be cached in future if sum is added to cache)
-	sumA := reduce.BlazeReduceVectorSumF64[T](analysisA.Vector)
-	sumB := reduce.BlazeReduceVectorSumF64[T](analysisB.Vector)
+	// Use cached sums if available, otherwise compute and cache
+	sumA := descriptive.StatArchDescriptiveVectorSumF64(analysisA)
+	sumB := descriptive.StatArchDescriptiveVectorSumF64(analysisB)
 
 	if sumA == 0 || sumB == 0 {
 		panic("cannot compute Bhattacharyya distance: vector sum is 0")
@@ -239,9 +239,9 @@ func StatArchDistanceVectorKLDivergenceF32[T foundation.Numeric](
 		}
 	}, core.StatarchDefaultStride)
 
-	// Compute sums using Blaze (could be cached in future if sum is added to cache)
-	sumP := reduce.BlazeReduceVectorSumF32[T](analysisP.Vector)
-	sumQ := reduce.BlazeReduceVectorSumF32[T](analysisQ.Vector)
+	// Use cached sums if available, otherwise compute and cache
+	sumP := descriptive.StatArchDescriptiveVectorSumF32(analysisP)
+	sumQ := descriptive.StatArchDescriptiveVectorSumF32(analysisQ)
 
 	if sumP == 0 {
 		panic("cannot compute KL divergence: vectorP sum is 0")
@@ -336,9 +336,9 @@ func StatArchDistanceVectorKLDivergenceF64[T foundation.Numeric](
 		}
 	}, core.StatarchDefaultStride)
 
-	// Compute sums using Blaze (could be cached in future if sum is added to cache)
-	sumP := reduce.BlazeReduceVectorSumF64[T](analysisP.Vector)
-	sumQ := reduce.BlazeReduceVectorSumF64[T](analysisQ.Vector)
+	// Use cached sums if available, otherwise compute and cache
+	sumP := descriptive.StatArchDescriptiveVectorSumF64(analysisP)
+	sumQ := descriptive.StatArchDescriptiveVectorSumF64(analysisQ)
 
 	if sumP == 0 {
 		panic("cannot compute KL divergence: vectorP sum is 0")

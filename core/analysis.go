@@ -83,6 +83,10 @@ const (
 	StatKindRollingKurtosisF32Population
 	StatKindRollingKurtosisF64Sample
 	StatKindRollingKurtosisF64Population
+	StatKindSumF32
+	StatKindSumF64
+	StatKindNormSquaredF32
+	StatKindNormSquaredF64
 )
 
 /*

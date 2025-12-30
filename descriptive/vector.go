@@ -88,6 +88,162 @@ func StatArchDescriptiveVectorMeanF64[T foundation.Numeric](
 }
 
 /*
+StatArchDescriptiveVectorSumF32 computes the sum of all elements in a vector in float32 precision.
+
+Use cases:
+- Pre-requisite for distance functions (Bhattacharyya, KL divergence)
+- Normalization of probability distributions
+- Cumulative value tracking
+
+Time complexity: O(n) - single pass through vector
+Space complexity: O(1) - only accumulator variable used
+
+Prerequisites:
+- Vector must contain at least 1 element
+- Vector does not need to be sorted
+
+Edge cases:
+- Returns 0 if vector is empty (count is 0)
+- Works with any numeric type (int, float32, float64, etc.)
+
+The function uses the analysis structure to cache the computed sum value.
+If the sum has already been computed, it returns the cached value.
+*/
+func StatArchDescriptiveVectorSumF32[T foundation.Numeric](
+	analysis *core.StatArchAnalysis[T],
+) float32 {
+	core.StatArchAnalysisValidateVersion(analysis)
+
+	if cached, ok := analysis.Cache[core.StatKindSumF32]; ok {
+		return cached.(float32)
+	}
+
+	sum := reduce.BlazeReduceVectorSumF32[T](analysis.Vector)
+
+	analysis.Cache[core.StatKindSumF32] = sum
+
+	return sum
+}
+
+/*
+StatArchDescriptiveVectorSumF64 computes the sum of all elements in a vector in float64 precision.
+
+Use cases:
+- Pre-requisite for distance functions (Bhattacharyya, KL divergence)
+- Normalization of probability distributions
+- Cumulative value tracking
+
+Time complexity: O(n) - single pass through vector
+Space complexity: O(1) - only accumulator variable used
+
+Prerequisites:
+- Vector must contain at least 1 element
+- Vector does not need to be sorted
+
+Edge cases:
+- Returns 0 if vector is empty (count is 0)
+- Works with any numeric type (int, float32, float64, etc.)
+
+The function uses the analysis structure to cache the computed sum value.
+If the sum has already been computed, it returns the cached value.
+*/
+func StatArchDescriptiveVectorSumF64[T foundation.Numeric](
+	analysis *core.StatArchAnalysis[T],
+) float64 {
+	core.StatArchAnalysisValidateVersion(analysis)
+
+	if cached, ok := analysis.Cache[core.StatKindSumF64]; ok {
+		return cached.(float64)
+	}
+
+	sum := reduce.BlazeReduceVectorSumF64[T](analysis.Vector)
+
+	analysis.Cache[core.StatKindSumF64] = sum
+
+	return sum
+}
+
+/*
+StatArchDescriptiveVectorNormSquaredF32 computes the sum of squares (norm squared) of a vector in float32 precision.
+
+The norm squared is the sum of each element squared: ||v||² = Σ(v_i²)
+
+Use cases:
+- Pre-requisite for cosine similarity (vector norm)
+- Distance calculations
+- Vector magnitude computations
+
+Time complexity: O(n) - single pass through vector
+Space complexity: O(1) - only accumulator variable used
+
+Prerequisites:
+- Vector must contain at least 1 element
+- Vector does not need to be sorted
+
+Edge cases:
+- Returns 0 if vector is empty (count is 0)
+- Works with any numeric type (int, float32, float64, etc.)
+
+The function uses the analysis structure to cache the computed norm squared value.
+If the norm squared has already been computed, it returns the cached value.
+*/
+func StatArchDescriptiveVectorNormSquaredF32[T foundation.Numeric](
+	analysis *core.StatArchAnalysis[T],
+) float32 {
+	core.StatArchAnalysisValidateVersion(analysis)
+
+	if cached, ok := analysis.Cache[core.StatKindNormSquaredF32]; ok {
+		return cached.(float32)
+	}
+
+	normSquared := reduce.BlazeReduceVectorSumSquaredF32[T](analysis.Vector)
+
+	analysis.Cache[core.StatKindNormSquaredF32] = normSquared
+
+	return normSquared
+}
+
+/*
+StatArchDescriptiveVectorNormSquaredF64 computes the sum of squares (norm squared) of a vector in float64 precision.
+
+The norm squared is the sum of each element squared: ||v||² = Σ(v_i²)
+
+Use cases:
+- Pre-requisite for cosine similarity (vector norm)
+- Distance calculations
+- Vector magnitude computations
+
+Time complexity: O(n) - single pass through vector
+Space complexity: O(1) - only accumulator variable used
+
+Prerequisites:
+- Vector must contain at least 1 element
+- Vector does not need to be sorted
+
+Edge cases:
+- Returns 0 if vector is empty (count is 0)
+- Works with any numeric type (int, float32, float64, etc.)
+
+The function uses the analysis structure to cache the computed norm squared value.
+If the norm squared has already been computed, it returns the cached value.
+*/
+func StatArchDescriptiveVectorNormSquaredF64[T foundation.Numeric](
+	analysis *core.StatArchAnalysis[T],
+) float64 {
+	core.StatArchAnalysisValidateVersion(analysis)
+
+	if cached, ok := analysis.Cache[core.StatKindNormSquaredF64]; ok {
+		return cached.(float64)
+	}
+
+	normSquared := reduce.BlazeReduceVectorSumSquaredF64[T](analysis.Vector)
+
+	analysis.Cache[core.StatKindNormSquaredF64] = normSquared
+
+	return normSquared
+}
+
+/*
 StatArchDescriptiveVectorHarmonicMeanF32 computes the harmonic mean of a vector in float32 precision.
 
 The harmonic mean is the reciprocal of the arithmetic mean of reciprocals.
