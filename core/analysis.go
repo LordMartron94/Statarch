@@ -5,6 +5,7 @@ import (
 	"memarch"
 	"memcore"
 	"memstruct"
+	"unsafe"
 )
 
 // StatKind represents the type of statistic being cached.
@@ -409,9 +410,10 @@ func StatArchAnalysisReset[T foundation.Numeric](
 	analysis *StatArchAnalysis[T],
 	vector memcore.MarkRaw,
 ) {
-	// Clear cache slice by setting all elements to nil
-	for i := range analysis.cache {
-		analysis.cache[i] = nil
+	// Clear cache slice efficiently using runtime's optimized memclr
+	// Since interface{} values contain pointers, we use memclrHasPointers
+	if len(analysis.cache) > 0 {
+		memclrHasPointers(unsafe.Pointer(&analysis.cache[0]), uintptr(len(analysis.cache))*unsafe.Sizeof(analysis.cache[0]))
 	}
 
 	// Reset sorted and scratch vector flags
@@ -426,6 +428,10 @@ func StatArchAnalysisReset[T foundation.Numeric](
 	analysis.SourceVersion = memstruct.VectorVersionGet[T](vector)
 	// AllocFn is preserved (not reset)
 }
+
+//go:linkname memclrHasPointers runtime.memclrHasPointers
+//go:nosplit
+func memclrHasPointers(ptr unsafe.Pointer, n uintptr)
 
 /*
 WithMeanF32 sets the cached mean value in float32 precision.
