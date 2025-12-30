@@ -309,30 +309,69 @@ Time complexity: O(k) where k is the number of cached statistics (typically smal
 Space complexity: O(1) - clears existing cache, doesn't allocate new memory
 */
 func StatArchAnalysisInvalidateCache[T foundation.Numeric](analysis *StatArchAnalysis[T]) {
-	if len(analysis.cacheF32) > 0 {
-		memclrNoHeapPointers(unsafe.Pointer(&analysis.cacheF32[0]), uintptr(len(analysis.cacheF32))*unsafe.Sizeof(analysis.cacheF32[0]))
-	}
-	if len(analysis.cacheF64) > 0 {
-		memclrNoHeapPointers(unsafe.Pointer(&analysis.cacheF64[0]), uintptr(len(analysis.cacheF64))*unsafe.Sizeof(analysis.cacheF64[0]))
-	}
 	// Clear validity bitmasks
 	analysis.cacheF32Valid[0] = 0
 	analysis.cacheF32Valid[1] = 0
 	analysis.cacheF64Valid[0] = 0
 	analysis.cacheF64Valid[1] = 0
-	// For cacheOther, set to nil (interface{} contains pointers)
-	for i := range analysis.cacheOther {
-		analysis.cacheOther[i] = nil
+
+	if len(analysis.cacheOther) > 0 {
+		memclrHasPointers(unsafe.Pointer(&analysis.cacheOther[0]), uintptr(len(analysis.cacheOther))*unsafe.Sizeof(analysis.cacheOther[0]))
 	}
 
-	// Reset sorted and scratch vector flags
 	analysis.SortedCreated = false
 	analysis.ScratchCreated = false
 	analysis.ScratchCreatedF32 = false
 	analysis.ScratchCreatedF64 = false
 
-	// Update SourceVersion to current vector version
 	analysis.SourceVersion = memstruct.VectorVersionGet[T](analysis.Vector)
+}
+
+/*
+StatArchAnalysisReset resets an analysis structure to be reused with a new vector.
+
+This function clears the cache map (reusing the existing map to avoid allocations),
+resets all scratch/sorted vector flags, and updates the vector reference, count, and
+source version. The AllocFn is preserved. This allows reusing a single analysis object
+across multiple vectors in hot loops, eliminating expensive allocations.
+
+Use cases:
+- Reusing analysis objects in hot loops (e.g., similarity search over many vectors)
+- Avoiding allocations when processing multiple vectors sequentially
+- Performance optimization in batch operations
+
+Time complexity: O(k) where k is the number of cached statistics (typically small)
+Space complexity: O(1) - reuses existing cache map, no new allocations
+
+Parameters:
+- analysis: The analysis structure to reset (must be previously created)
+- vector: The new vector to analyze (must be valid and initialized)
+
+Prerequisites:
+- analysis must be a valid StatArchAnalysis created with StatArchAnalysisCreate
+- vector must be a valid MarkRaw pointing to a bound vector header
+- AllocFn in analysis must remain valid for the lifetime of the analysis object
+
+Edge cases:
+- If the cache map is nil (should not happen with properly created analysis), it will be initialized
+- Resetting does not free scratch/sorted vectors; they remain allocated until garbage collected
+- SourceVersion is updated to match the new vector's version
+
+Additional notes:
+  - This function is designed for hot loop optimization where the same analysis object
+    is reused across many iterations. For one-off analysis, StatArchAnalysisCreate is preferred.
+  - The cache map is reused, not reallocated, which is the key performance benefit.
+*/
+func StatArchAnalysisReset[T foundation.Numeric](
+	analysis *StatArchAnalysis[T],
+	vector memcore.MarkRaw,
+) {
+	StatArchAnalysisInvalidateCache(analysis)
+
+	// Update vector reference and metadata
+	analysis.Vector = vector
+	analysis.Count = memstruct.VectorCapacityGet[T](vector)
+	analysis.SourceVersion = memstruct.VectorVersionGet[T](vector)
 }
 
 /*
@@ -491,76 +530,6 @@ func StatArchAnalysisSetCacheValue[T foundation.Numeric](analysis *StatArchAnaly
 	}
 	idx := kind - 1
 	analysis.cacheOther[idx] = value
-}
-
-/*
-StatArchAnalysisReset resets an analysis structure to be reused with a new vector.
-
-This function clears the cache map (reusing the existing map to avoid allocations),
-resets all scratch/sorted vector flags, and updates the vector reference, count, and
-source version. The AllocFn is preserved. This allows reusing a single analysis object
-across multiple vectors in hot loops, eliminating expensive allocations.
-
-Use cases:
-- Reusing analysis objects in hot loops (e.g., similarity search over many vectors)
-- Avoiding allocations when processing multiple vectors sequentially
-- Performance optimization in batch operations
-
-Time complexity: O(k) where k is the number of cached statistics (typically small)
-Space complexity: O(1) - reuses existing cache map, no new allocations
-
-Parameters:
-- analysis: The analysis structure to reset (must be previously created)
-- vector: The new vector to analyze (must be valid and initialized)
-
-Prerequisites:
-- analysis must be a valid StatArchAnalysis created with StatArchAnalysisCreate
-- vector must be a valid MarkRaw pointing to a bound vector header
-- AllocFn in analysis must remain valid for the lifetime of the analysis object
-
-Edge cases:
-- If the cache map is nil (should not happen with properly created analysis), it will be initialized
-- Resetting does not free scratch/sorted vectors; they remain allocated until garbage collected
-- SourceVersion is updated to match the new vector's version
-
-Additional notes:
-  - This function is designed for hot loop optimization where the same analysis object
-    is reused across many iterations. For one-off analysis, StatArchAnalysisCreate is preferred.
-  - The cache map is reused, not reallocated, which is the key performance benefit.
-*/
-func StatArchAnalysisReset[T foundation.Numeric](
-	analysis *StatArchAnalysis[T],
-	vector memcore.MarkRaw,
-) {
-	// Clear cache slices efficiently using memclr (near constant time)
-	// For float32/float64, use memclrNoHeapPointers (value types)
-	if len(analysis.cacheF32) > 0 {
-		memclrNoHeapPointers(unsafe.Pointer(&analysis.cacheF32[0]), uintptr(len(analysis.cacheF32))*unsafe.Sizeof(analysis.cacheF32[0]))
-	}
-	if len(analysis.cacheF64) > 0 {
-		memclrNoHeapPointers(unsafe.Pointer(&analysis.cacheF64[0]), uintptr(len(analysis.cacheF64))*unsafe.Sizeof(analysis.cacheF64[0]))
-	}
-	// Clear validity bitmasks (constant time - just 2 assignments)
-	analysis.cacheF32Valid[0] = 0
-	analysis.cacheF32Valid[1] = 0
-	analysis.cacheF64Valid[0] = 0
-	analysis.cacheF64Valid[1] = 0
-	// For cacheOther, use memclrHasPointers (interface{} contains pointers)
-	if len(analysis.cacheOther) > 0 {
-		memclrHasPointers(unsafe.Pointer(&analysis.cacheOther[0]), uintptr(len(analysis.cacheOther))*unsafe.Sizeof(analysis.cacheOther[0]))
-	}
-
-	// Reset sorted and scratch vector flags
-	analysis.SortedCreated = false
-	analysis.ScratchCreated = false
-	analysis.ScratchCreatedF32 = false
-	analysis.ScratchCreatedF64 = false
-
-	// Update vector reference and metadata
-	analysis.Vector = vector
-	analysis.Count = memstruct.VectorCapacityGet[T](vector)
-	analysis.SourceVersion = memstruct.VectorVersionGet[T](vector)
-	// AllocFn is preserved (not reset)
 }
 
 //go:linkname memclrHasPointers runtime.memclrHasPointers
