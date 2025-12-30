@@ -37,13 +37,13 @@ func StatArchDescriptiveVectorMeanF32[T foundation.Numeric](
 ) float32 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindMeanF32]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindMeanF32); ok {
 		return cached.(float32)
 	}
 
 	mean := reduce.BlazeReduceVectorMeanF32[T](analysis.Vector)
 
-	analysis.Cache[core.StatKindMeanF32] = mean
+	core.SetCacheValue(analysis, core.StatKindMeanF32, mean)
 
 	return mean
 }
@@ -76,13 +76,13 @@ func StatArchDescriptiveVectorMeanF64[T foundation.Numeric](
 ) float64 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindMeanF64]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindMeanF64); ok {
 		return cached.(float64)
 	}
 
 	mean := reduce.BlazeReduceVectorMeanF64[T](analysis.Vector)
 
-	analysis.Cache[core.StatKindMeanF64] = mean
+	core.SetCacheValue(analysis, core.StatKindMeanF64, mean)
 
 	return mean
 }
@@ -114,13 +114,13 @@ func StatArchDescriptiveVectorSumF32[T foundation.Numeric](
 ) float32 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindSumF32]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindSumF32); ok {
 		return cached.(float32)
 	}
 
 	sum := reduce.BlazeReduceVectorSumF32[T](analysis.Vector)
 
-	analysis.Cache[core.StatKindSumF32] = sum
+	core.SetCacheValue(analysis, core.StatKindSumF32, sum)
 
 	return sum
 }
@@ -152,13 +152,13 @@ func StatArchDescriptiveVectorSumF64[T foundation.Numeric](
 ) float64 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindSumF64]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindSumF64); ok {
 		return cached.(float64)
 	}
 
 	sum := reduce.BlazeReduceVectorSumF64[T](analysis.Vector)
 
-	analysis.Cache[core.StatKindSumF64] = sum
+	core.SetCacheValue(analysis, core.StatKindSumF64, sum)
 
 	return sum
 }
@@ -192,13 +192,13 @@ func StatArchDescriptiveVectorNormSquaredF32[T foundation.Numeric](
 ) float32 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindNormSquaredF32]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindNormSquaredF32); ok {
 		return cached.(float32)
 	}
 
 	normSquared := reduce.BlazeReduceVectorSumSquaredF32[T](analysis.Vector)
 
-	analysis.Cache[core.StatKindNormSquaredF32] = normSquared
+	core.SetCacheValue(analysis, core.StatKindNormSquaredF32, normSquared)
 
 	return normSquared
 }
@@ -232,13 +232,13 @@ func StatArchDescriptiveVectorNormSquaredF64[T foundation.Numeric](
 ) float64 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindNormSquaredF64]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindNormSquaredF64); ok {
 		return cached.(float64)
 	}
 
 	normSquared := reduce.BlazeReduceVectorSumSquaredF64[T](analysis.Vector)
 
-	analysis.Cache[core.StatKindNormSquaredF64] = normSquared
+	core.SetCacheValue(analysis, core.StatKindNormSquaredF64, normSquared)
 
 	return normSquared
 }
@@ -277,7 +277,7 @@ func StatArchDescriptiveVectorHarmonicMeanF32[T foundation.Numeric](
 ) float32 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindHarmonicMeanF32]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindHarmonicMeanF32); ok {
 		return cached.(float32)
 	}
 
@@ -296,7 +296,8 @@ func StatArchDescriptiveVectorHarmonicMeanF32[T foundation.Numeric](
 	}, core.StatarchDefaultStride)
 
 	harmonicMean := float32(size) / sumReciprocals
-	analysis.Cache[core.StatKindHarmonicMeanF32] = harmonicMean
+
+	core.SetCacheValue(analysis, core.StatKindHarmonicMeanF32, harmonicMean)
 
 	return harmonicMean
 }
@@ -335,7 +336,7 @@ func StatArchDescriptiveVectorHarmonicMeanF64[T foundation.Numeric](
 ) float64 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindHarmonicMeanF64]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindHarmonicMeanF64); ok {
 		return cached.(float64)
 	}
 
@@ -354,7 +355,7 @@ func StatArchDescriptiveVectorHarmonicMeanF64[T foundation.Numeric](
 	}, core.StatarchDefaultStride)
 
 	harmonicMean := float64(size) / sumReciprocals
-	analysis.Cache[core.StatKindHarmonicMeanF64] = harmonicMean
+	core.SetCacheValue(analysis, core.StatKindHarmonicMeanF64, harmonicMean)
 
 	return harmonicMean
 }
@@ -393,7 +394,7 @@ func StatArchDescriptiveVectorGeometricMeanF32[T foundation.Numeric](
 ) float32 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindGeometricMeanF32]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindGeometricMeanF32); ok {
 		return cached.(float32)
 	}
 
@@ -412,7 +413,7 @@ func StatArchDescriptiveVectorGeometricMeanF32[T foundation.Numeric](
 	}, core.StatarchDefaultStride)
 
 	geometricMean := foundation.Exp32(sumLogs / float32(size))
-	analysis.Cache[core.StatKindGeometricMeanF32] = geometricMean
+	core.SetCacheValue(analysis, core.StatKindGeometricMeanF32, geometricMean)
 
 	return geometricMean
 }
@@ -451,7 +452,7 @@ func StatArchDescriptiveVectorGeometricMeanF64[T foundation.Numeric](
 ) float64 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindGeometricMeanF64]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindGeometricMeanF64); ok {
 		return cached.(float64)
 	}
 
@@ -470,7 +471,7 @@ func StatArchDescriptiveVectorGeometricMeanF64[T foundation.Numeric](
 	}, core.StatarchDefaultStride)
 
 	geometricMean := foundation.Exp64(sumLogs / float64(size))
-	analysis.Cache[core.StatKindGeometricMeanF64] = geometricMean
+	core.SetCacheValue(analysis, core.StatKindGeometricMeanF64, geometricMean)
 
 	return geometricMean
 }
@@ -632,7 +633,7 @@ func StatArchDescriptiveVectorMedianF32[T foundation.Numeric](
 ) float32 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindMedianF32]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindMedianF32); ok {
 		return cached.(float32)
 	}
 
@@ -653,7 +654,7 @@ func StatArchDescriptiveVectorMedianF32[T foundation.Numeric](
 		median = float32(memstruct.VectorItemGetAtUnsafe[T](sortedVector, mid))
 	}
 
-	analysis.Cache[core.StatKindMedianF32] = median
+	core.SetCacheValue(analysis, core.StatKindMedianF32, median)
 	return median
 }
 
@@ -686,7 +687,7 @@ func StatArchDescriptiveVectorMedianF64[T foundation.Numeric](
 ) float64 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindMedianF64]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindMedianF64); ok {
 		return cached.(float64)
 	}
 
@@ -707,7 +708,7 @@ func StatArchDescriptiveVectorMedianF64[T foundation.Numeric](
 		median = float64(memstruct.VectorItemGetAtUnsafe[T](sortedVector, mid))
 	}
 
-	analysis.Cache[core.StatKindMedianF64] = median
+	core.SetCacheValue(analysis, core.StatKindMedianF64, median)
 	return median
 }
 
@@ -865,8 +866,8 @@ func StatArchDescriptiveVectorMode[T foundation.Numeric](
 ) (mode T, occurrence uint) {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cachedMode, ok := analysis.Cache[core.StatKindMode]; ok {
-		if cachedOccurrence, ok := analysis.Cache[core.StatKindModeOccurrence]; ok {
+	if cachedMode, ok := core.GetCacheValue(analysis, core.StatKindMode); ok {
+		if cachedOccurrence, ok := core.GetCacheValue(analysis, core.StatKindModeOccurrence); ok {
 			return cachedMode.(T), cachedOccurrence.(uint)
 		}
 	}
@@ -877,8 +878,8 @@ func StatArchDescriptiveVectorMode[T foundation.Numeric](
 	}
 	if size == 1 {
 		mode := memstruct.VectorItemGetAtUnsafe[T](analysis.Vector, 0)
-		analysis.Cache[core.StatKindMode] = mode
-		analysis.Cache[core.StatKindModeOccurrence] = uint(1)
+		core.SetCacheValue(analysis, core.StatKindMode, mode)
+		core.SetCacheValue(analysis, core.StatKindModeOccurrence, uint(1))
 		return mode, 1
 	}
 
@@ -927,8 +928,8 @@ func StatArchDescriptiveVectorMode[T foundation.Numeric](
 		bestMode = currentMode
 	}
 
-	analysis.Cache[core.StatKindMode] = bestMode
-	analysis.Cache[core.StatKindModeOccurrence] = maxCount
+	core.SetCacheValue(analysis, core.StatKindMode, bestMode)
+	core.SetCacheValue(analysis, core.StatKindModeOccurrence, maxCount)
 
 	return bestMode, maxCount
 }
@@ -973,7 +974,7 @@ func StatArchDescriptiveVectorVarianceF32[T foundation.Numeric](
 		kind = core.StatKindVarianceF32Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
+	if cached, ok := core.GetCacheValue(analysis, kind); ok {
 		return cached.(float32)
 	}
 
@@ -997,7 +998,7 @@ func StatArchDescriptiveVectorVarianceF32[T foundation.Numeric](
 
 	variance := sumSquaredDeviations / denominator
 
-	analysis.Cache[kind] = variance
+	core.SetCacheValue(analysis, kind, variance)
 
 	return variance
 }
@@ -1046,7 +1047,7 @@ func StatArchDescriptiveVectorVarianceF64[T foundation.Numeric](
 		kind = core.StatKindVarianceF64Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
+	if cached, ok := core.GetCacheValue(analysis, kind); ok {
 		return cached.(float64)
 	}
 
@@ -1070,7 +1071,7 @@ func StatArchDescriptiveVectorVarianceF64[T foundation.Numeric](
 
 	variance := sumSquaredDeviations / denominator
 
-	analysis.Cache[kind] = variance
+	core.SetCacheValue(analysis, kind, variance)
 
 	return variance
 }
@@ -1115,14 +1116,14 @@ func StatArchDescriptiveVectorStandardDeviationF32[T foundation.Numeric](
 		kind = core.StatKindStddevF32Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
+	if cached, ok := core.GetCacheValue(analysis, kind); ok {
 		return cached.(float32)
 	}
 
 	variance := StatArchDescriptiveVectorVarianceF32(analysis, sample)
 	stddev := foundation.Sqrt32(variance)
 
-	analysis.Cache[kind] = stddev
+	core.SetCacheValue(analysis, kind, stddev)
 
 	return stddev
 }
@@ -1167,14 +1168,14 @@ func StatArchDescriptiveVectorStandardDeviationF64[T foundation.Numeric](
 		kind = core.StatKindStddevF64Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
+	if cached, ok := core.GetCacheValue(analysis, kind); ok {
 		return cached.(float64)
 	}
 
 	variance := StatArchDescriptiveVectorVarianceF64(analysis, sample)
 	stddev := foundation.Sqrt64(variance)
 
-	analysis.Cache[kind] = stddev
+	core.SetCacheValue(analysis, kind, stddev)
 
 	return stddev
 }
@@ -1209,11 +1210,11 @@ func StatArchDescriptiveVectorRange[T foundation.Numeric](
 	var minV, maxV T
 	var minCached, maxCached bool
 
-	if cached, ok := analysis.Cache[core.StatKindMin]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindMin); ok {
 		minV = cached.(T)
 		minCached = true
 	}
-	if cached, ok := analysis.Cache[core.StatKindMax]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindMax); ok {
 		maxV = cached.(T)
 		maxCached = true
 	}
@@ -1224,8 +1225,8 @@ func StatArchDescriptiveVectorRange[T foundation.Numeric](
 
 	minV, maxV = reduce.BlazeReduceVectorMinMax[T](analysis.Vector)
 
-	analysis.Cache[core.StatKindMin] = minV
-	analysis.Cache[core.StatKindMax] = maxV
+	core.SetCacheValue(analysis, core.StatKindMin, minV)
+	core.SetCacheValue(analysis, core.StatKindMax, maxV)
 
 	return maxV - minV
 }
@@ -1259,7 +1260,7 @@ func StatArchDescriptiveVectorIQRF32[T foundation.Numeric](
 ) float32 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindIQRF32]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindIQRF32); ok {
 		return cached.(float32)
 	}
 
@@ -1267,7 +1268,7 @@ func StatArchDescriptiveVectorIQRF32[T foundation.Numeric](
 	q1 := StatArchDescriptiveVectorPercentileF32(analysis, 25)
 
 	iqr := q3 - q1
-	analysis.Cache[core.StatKindIQRF32] = iqr
+	core.SetCacheValue(analysis, core.StatKindIQRF32, iqr)
 	return iqr
 }
 
@@ -1300,7 +1301,7 @@ func StatArchDescriptiveVectorIQRF64[T foundation.Numeric](
 ) float64 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindIQRF64]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindIQRF64); ok {
 		return cached.(float64)
 	}
 
@@ -1308,7 +1309,7 @@ func StatArchDescriptiveVectorIQRF64[T foundation.Numeric](
 	q1 := StatArchDescriptiveVectorPercentileF64(analysis, 25)
 
 	iqr := q3 - q1
-	analysis.Cache[core.StatKindIQRF64] = iqr
+	core.SetCacheValue(analysis, core.StatKindIQRF64, iqr)
 	return iqr
 }
 
@@ -1345,7 +1346,7 @@ func StatArchDescriptiveVectorNormalizedIQRF32[T foundation.Numeric](
 ) float32 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindNormalizedIQRF32]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindNormalizedIQRF32); ok {
 		return cached.(float32)
 	}
 
@@ -1358,7 +1359,7 @@ func StatArchDescriptiveVectorNormalizedIQRF32[T foundation.Numeric](
 	}
 
 	normalizedIQR := (q3 - q1) / denominator
-	analysis.Cache[core.StatKindNormalizedIQRF32] = normalizedIQR
+	core.SetCacheValue(analysis, core.StatKindNormalizedIQRF32, normalizedIQR)
 	return normalizedIQR
 }
 
@@ -1395,7 +1396,7 @@ func StatArchDescriptiveVectorNormalizedIQRF64[T foundation.Numeric](
 ) float64 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindNormalizedIQRF64]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindNormalizedIQRF64); ok {
 		return cached.(float64)
 	}
 
@@ -1408,7 +1409,7 @@ func StatArchDescriptiveVectorNormalizedIQRF64[T foundation.Numeric](
 	}
 
 	normalizedIQR := (q3 - q1) / denominator
-	analysis.Cache[core.StatKindNormalizedIQRF64] = normalizedIQR
+	core.SetCacheValue(analysis, core.StatKindNormalizedIQRF64, normalizedIQR)
 	return normalizedIQR
 }
 
@@ -1451,7 +1452,7 @@ func StatArchDescriptiveVectorSkewnessF32[T foundation.Numeric](
 		kind = core.StatKindSkewnessF32Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
+	if cached, ok := core.GetCacheValue(analysis, kind); ok {
 		return cached.(float32)
 	}
 
@@ -1466,7 +1467,7 @@ func StatArchDescriptiveVectorSkewnessF32[T foundation.Numeric](
 	standardDeviation := StatArchDescriptiveVectorStandardDeviationF32(analysis, sample)
 
 	if standardDeviation == 0 {
-		analysis.Cache[kind] = float32(0)
+		core.SetCacheValue(analysis, kind, float32(0))
 		return 0
 	}
 
@@ -1487,7 +1488,7 @@ func StatArchDescriptiveVectorSkewnessF32[T foundation.Numeric](
 		skewness = accumulatedSkew / n
 	}
 
-	analysis.Cache[kind] = skewness
+	core.SetCacheValue(analysis, kind, skewness)
 	return skewness
 }
 
@@ -1530,7 +1531,7 @@ func StatArchDescriptiveVectorSkewnessF64[T foundation.Numeric](
 		kind = core.StatKindSkewnessF64Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
+	if cached, ok := core.GetCacheValue(analysis, kind); ok {
 		return cached.(float64)
 	}
 
@@ -1545,7 +1546,7 @@ func StatArchDescriptiveVectorSkewnessF64[T foundation.Numeric](
 	standardDeviation := StatArchDescriptiveVectorStandardDeviationF64(analysis, sample)
 
 	if standardDeviation == 0 {
-		analysis.Cache[kind] = float64(0)
+		core.SetCacheValue(analysis, kind, float64(0))
 		return 0
 	}
 
@@ -1566,7 +1567,7 @@ func StatArchDescriptiveVectorSkewnessF64[T foundation.Numeric](
 		skewness = accumulatedSkew / n
 	}
 
-	analysis.Cache[kind] = skewness
+	core.SetCacheValue(analysis, kind, skewness)
 	return skewness
 }
 
@@ -1614,7 +1615,7 @@ func StatArchDescriptiveVectorKurtosisF32[T foundation.Numeric](
 		kind = core.StatKindKurtosisF32Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
+	if cached, ok := core.GetCacheValue(analysis, kind); ok {
 		return cached.(float32)
 	}
 
@@ -1653,7 +1654,7 @@ func StatArchDescriptiveVectorKurtosisF32[T foundation.Numeric](
 		kurtosis = float32(accumulatedKurtosis/n) - 3
 	}
 
-	analysis.Cache[kind] = kurtosis
+	core.SetCacheValue(analysis, kind, kurtosis)
 	return kurtosis
 }
 
@@ -1701,7 +1702,7 @@ func StatArchDescriptiveVectorKurtosisF64[T foundation.Numeric](
 		kind = core.StatKindKurtosisF64Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
+	if cached, ok := core.GetCacheValue(analysis, kind); ok {
 		return cached.(float64)
 	}
 
@@ -1738,7 +1739,7 @@ func StatArchDescriptiveVectorKurtosisF64[T foundation.Numeric](
 		kurtosis = accumulatedKurtosis/n - 3
 	}
 
-	analysis.Cache[kind] = kurtosis
+	core.SetCacheValue(analysis, kind, kurtosis)
 	return kurtosis
 }
 
@@ -1769,7 +1770,7 @@ func StatArchDescriptiveVectorMeanAbsoluteDeviationF32[T foundation.Numeric](
 ) float32 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindMeanAbsoluteDeviationF32]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindMeanAbsoluteDeviationF32); ok {
 		return cached.(float32)
 	}
 
@@ -1791,7 +1792,7 @@ func StatArchDescriptiveVectorMeanAbsoluteDeviationF32[T foundation.Numeric](
 	}, core.StatarchDefaultStride)
 
 	mad := float32(accumulatedDeviation / float64(size))
-	analysis.Cache[core.StatKindMeanAbsoluteDeviationF32] = mad
+	core.SetCacheValue(analysis, core.StatKindMeanAbsoluteDeviationF32, mad)
 	return mad
 }
 
@@ -1822,7 +1823,7 @@ func StatArchDescriptiveVectorMeanAbsoluteDeviationF64[T foundation.Numeric](
 ) float64 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindMeanAbsoluteDeviationF64]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindMeanAbsoluteDeviationF64); ok {
 		return cached.(float64)
 	}
 
@@ -1843,7 +1844,7 @@ func StatArchDescriptiveVectorMeanAbsoluteDeviationF64[T foundation.Numeric](
 	}, core.StatarchDefaultStride)
 
 	mad := accumulatedDeviation / float64(size)
-	analysis.Cache[core.StatKindMeanAbsoluteDeviationF64] = mad
+	core.SetCacheValue(analysis, core.StatKindMeanAbsoluteDeviationF64, mad)
 	return mad
 }
 
@@ -1876,7 +1877,7 @@ func StatArchDescriptiveVectorMedianAbsoluteDeviationF32[T foundation.Numeric](
 ) float32 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindMedianAbsoluteDeviationF32]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindMedianAbsoluteDeviationF32); ok {
 		return cached.(float32)
 	}
 
@@ -1926,7 +1927,7 @@ func StatArchDescriptiveVectorMedianAbsoluteDeviationF32[T foundation.Numeric](
 	}
 
 	mad := madMedian * 1.4826
-	analysis.Cache[core.StatKindMedianAbsoluteDeviationF32] = mad
+	core.SetCacheValue(analysis, core.StatKindMedianAbsoluteDeviationF32, mad)
 	return mad
 }
 
@@ -1959,7 +1960,7 @@ func StatArchDescriptiveVectorMedianAbsoluteDeviationF64[T foundation.Numeric](
 ) float64 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindMedianAbsoluteDeviationF64]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindMedianAbsoluteDeviationF64); ok {
 		return cached.(float64)
 	}
 
@@ -2009,7 +2010,7 @@ func StatArchDescriptiveVectorMedianAbsoluteDeviationF64[T foundation.Numeric](
 	}
 
 	mad := madMedian * 1.4826
-	analysis.Cache[core.StatKindMedianAbsoluteDeviationF64] = mad
+	core.SetCacheValue(analysis, core.StatKindMedianAbsoluteDeviationF64, mad)
 	return mad
 }
 
@@ -2052,7 +2053,7 @@ func StatArchDescriptiveVectorCoefficientVariantF32[T foundation.Numeric](
 		kind = core.StatKindCoefficientVariationF32Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
+	if cached, ok := core.GetCacheValue(analysis, kind); ok {
 		return cached.(float32)
 	}
 
@@ -2064,7 +2065,7 @@ func StatArchDescriptiveVectorCoefficientVariantF32[T foundation.Numeric](
 	}
 
 	cv := standardDeviation / mean
-	analysis.Cache[kind] = cv
+	core.SetCacheValue(analysis, kind, cv)
 	return cv
 }
 
@@ -2107,7 +2108,7 @@ func StatArchDescriptiveVectorCoefficientVariantF64[T foundation.Numeric](
 		kind = core.StatKindCoefficientVariationF64Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
+	if cached, ok := core.GetCacheValue(analysis, kind); ok {
 		return cached.(float64)
 	}
 
@@ -2119,7 +2120,7 @@ func StatArchDescriptiveVectorCoefficientVariantF64[T foundation.Numeric](
 	}
 
 	cv := standardDeviation / mean
-	analysis.Cache[kind] = cv
+	core.SetCacheValue(analysis, kind, cv)
 	return cv
 }
 
@@ -2172,23 +2173,23 @@ func StatArchDescriptiveVectorAnalyzeWelford[T foundation.Numeric](
 	mean = M1
 
 	// Precision handling: store both F32 and F64 means in cache
-	analysis.Cache[core.StatKindMeanF64] = mean
-	analysis.Cache[core.StatKindMeanF32] = float32(mean)
+	core.SetCacheValue(analysis, core.StatKindMeanF64, mean)
+	core.SetCacheValue(analysis, core.StatKindMeanF32, float32(mean))
 
 	if n < 2 {
 		// Cache zero variance and stddev for edge case
 		zeroVar := float64(0)
 		zeroStddev := float64(0)
 		if sample {
-			analysis.Cache[core.StatKindVarianceF64Sample] = zeroVar
-			analysis.Cache[core.StatKindVarianceF32Sample] = float32(zeroVar)
-			analysis.Cache[core.StatKindStddevF64Sample] = zeroStddev
-			analysis.Cache[core.StatKindStddevF32Sample] = float32(zeroStddev)
+			core.SetCacheValue(analysis, core.StatKindVarianceF64Sample, zeroVar)
+			core.SetCacheValue(analysis, core.StatKindVarianceF32Sample, float32(zeroVar))
+			core.SetCacheValue(analysis, core.StatKindStddevF64Sample, zeroStddev)
+			core.SetCacheValue(analysis, core.StatKindStddevF32Sample, float32(zeroStddev))
 		} else {
-			analysis.Cache[core.StatKindVarianceF64Population] = zeroVar
-			analysis.Cache[core.StatKindVarianceF32Population] = float32(zeroVar)
-			analysis.Cache[core.StatKindStddevF64Population] = zeroStddev
-			analysis.Cache[core.StatKindStddevF32Population] = float32(zeroStddev)
+			core.SetCacheValue(analysis, core.StatKindVarianceF64Population, zeroVar)
+			core.SetCacheValue(analysis, core.StatKindVarianceF32Population, float32(zeroVar))
+			core.SetCacheValue(analysis, core.StatKindStddevF64Population, zeroStddev)
+			core.SetCacheValue(analysis, core.StatKindStddevF32Population, float32(zeroStddev))
 		}
 		return mean, 0, 0, 0
 	}
@@ -2196,22 +2197,22 @@ func StatArchDescriptiveVectorAnalyzeWelford[T foundation.Numeric](
 	// 1. Variance
 	if sample {
 		variance = M2 / (n - 1)
-		analysis.Cache[core.StatKindVarianceF64Sample] = variance
-		analysis.Cache[core.StatKindVarianceF32Sample] = float32(variance)
+		core.SetCacheValue(analysis, core.StatKindVarianceF64Sample, variance)
+		core.SetCacheValue(analysis, core.StatKindVarianceF32Sample, float32(variance))
 	} else {
 		variance = M2 / n
-		analysis.Cache[core.StatKindVarianceF64Population] = variance
-		analysis.Cache[core.StatKindVarianceF32Population] = float32(variance)
+		core.SetCacheValue(analysis, core.StatKindVarianceF64Population, variance)
+		core.SetCacheValue(analysis, core.StatKindVarianceF32Population, float32(variance))
 	}
 
 	// Cache standard deviation
 	stddev := foundation.Sqrt64(variance)
 	if sample {
-		analysis.Cache[core.StatKindStddevF64Sample] = stddev
-		analysis.Cache[core.StatKindStddevF32Sample] = float32(stddev)
+		core.SetCacheValue(analysis, core.StatKindStddevF64Sample, stddev)
+		core.SetCacheValue(analysis, core.StatKindStddevF32Sample, float32(stddev))
 	} else {
-		analysis.Cache[core.StatKindStddevF64Population] = stddev
-		analysis.Cache[core.StatKindStddevF32Population] = float32(stddev)
+		core.SetCacheValue(analysis, core.StatKindStddevF64Population, stddev)
+		core.SetCacheValue(analysis, core.StatKindStddevF32Population, float32(stddev))
 	}
 
 	if M2 == 0 {
@@ -2219,15 +2220,15 @@ func StatArchDescriptiveVectorAnalyzeWelford[T foundation.Numeric](
 		zeroSkew := float64(0)
 		zeroKurt := float64(0)
 		if sample {
-			analysis.Cache[core.StatKindSkewnessF64Sample] = zeroSkew
-			analysis.Cache[core.StatKindSkewnessF32Sample] = float32(zeroSkew)
-			analysis.Cache[core.StatKindKurtosisF64Sample] = zeroKurt
-			analysis.Cache[core.StatKindKurtosisF32Sample] = float32(zeroKurt)
+			core.SetCacheValue(analysis, core.StatKindSkewnessF64Sample, zeroSkew)
+			core.SetCacheValue(analysis, core.StatKindSkewnessF32Sample, float32(zeroSkew))
+			core.SetCacheValue(analysis, core.StatKindKurtosisF64Sample, zeroKurt)
+			core.SetCacheValue(analysis, core.StatKindKurtosisF32Sample, float32(zeroKurt))
 		} else {
-			analysis.Cache[core.StatKindSkewnessF64Population] = zeroSkew
-			analysis.Cache[core.StatKindSkewnessF32Population] = float32(zeroSkew)
-			analysis.Cache[core.StatKindKurtosisF64Population] = zeroKurt
-			analysis.Cache[core.StatKindKurtosisF32Population] = float32(zeroKurt)
+			core.SetCacheValue(analysis, core.StatKindSkewnessF64Population, zeroSkew)
+			core.SetCacheValue(analysis, core.StatKindSkewnessF32Population, float32(zeroSkew))
+			core.SetCacheValue(analysis, core.StatKindKurtosisF64Population, zeroKurt)
+			core.SetCacheValue(analysis, core.StatKindKurtosisF32Population, float32(zeroKurt))
 		}
 		return mean, variance, 0, 0
 	}
@@ -2237,14 +2238,14 @@ func StatArchDescriptiveVectorAnalyzeWelford[T foundation.Numeric](
 		if n >= 3 {
 			// Unbiased Sample Skewness
 			skewness = (foundation.Sqrt64(n*(n-1)) / (n - 2)) * (M3 / foundation.Pow64(M2, 1.5))
-			analysis.Cache[core.StatKindSkewnessF64Sample] = skewness
-			analysis.Cache[core.StatKindSkewnessF32Sample] = float32(skewness)
+			core.SetCacheValue(analysis, core.StatKindSkewnessF64Sample, skewness)
+			core.SetCacheValue(analysis, core.StatKindSkewnessF32Sample, float32(skewness))
 		}
 	} else {
 		// Population Skewness
 		skewness = M3 / foundation.Pow64(M2/n, 1.5) / n
-		analysis.Cache[core.StatKindSkewnessF64Population] = skewness
-		analysis.Cache[core.StatKindSkewnessF32Population] = float32(skewness)
+		core.SetCacheValue(analysis, core.StatKindSkewnessF64Population, skewness)
+		core.SetCacheValue(analysis, core.StatKindSkewnessF32Population, float32(skewness))
 	}
 
 	// 3. Kurtosis (Excess)
@@ -2253,13 +2254,13 @@ func StatArchDescriptiveVectorAnalyzeWelford[T foundation.Numeric](
 			term1 := (n * (n + 1) * (n - 1)) / ((n - 2) * (n - 3))
 			term2 := (3 * (n - 1) * (n - 1)) / ((n - 2) * (n - 3))
 			kurtosis = (term1 * M4 / (M2 * M2)) - term2
-			analysis.Cache[core.StatKindKurtosisF64Sample] = kurtosis
-			analysis.Cache[core.StatKindKurtosisF32Sample] = float32(kurtosis)
+			core.SetCacheValue(analysis, core.StatKindKurtosisF64Sample, kurtosis)
+			core.SetCacheValue(analysis, core.StatKindKurtosisF32Sample, float32(kurtosis))
 		}
 	} else {
 		kurtosis = (n * M4 / (M2 * M2)) - 3
-		analysis.Cache[core.StatKindKurtosisF64Population] = kurtosis
-		analysis.Cache[core.StatKindKurtosisF32Population] = float32(kurtosis)
+		core.SetCacheValue(analysis, core.StatKindKurtosisF64Population, kurtosis)
+		core.SetCacheValue(analysis, core.StatKindKurtosisF32Population, float32(kurtosis))
 	}
 
 	return mean, variance, skewness, kurtosis
@@ -2309,14 +2310,14 @@ func StatArchDescriptiveVectorStandardErrorMeanF32[T foundation.Numeric](
 		kind = core.StatKindStandardErrorMeanF32Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
+	if cached, ok := core.GetCacheValue(analysis, kind); ok {
 		return cached.(float32)
 	}
 
 	standardDeviation := StatArchDescriptiveVectorStandardDeviationF32(analysis, sample)
 	sem := standardDeviation / foundation.Sqrt32(float32(analysis.Count))
 
-	analysis.Cache[kind] = sem
+	core.SetCacheValue(analysis, kind, sem)
 	return sem
 }
 
@@ -2364,14 +2365,14 @@ func StatArchDescriptiveVectorStandardErrorMeanF64[T foundation.Numeric](
 		kind = core.StatKindStandardErrorMeanF64Population
 	}
 
-	if cached, ok := analysis.Cache[kind]; ok {
+	if cached, ok := core.GetCacheValue(analysis, kind); ok {
 		return cached.(float64)
 	}
 
 	standardDeviation := StatArchDescriptiveVectorStandardDeviationF64(analysis, sample)
 	sem := standardDeviation / foundation.Sqrt64(float64(analysis.Count))
 
-	analysis.Cache[kind] = sem
+	core.SetCacheValue(analysis, kind, sem)
 	return sem
 }
 
@@ -2668,29 +2669,31 @@ func StatArchDescriptiveVectorMidRangeF32[T foundation.Numeric](
 ) float32 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindMidRangeF32]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindMidRangeF32); ok {
 		return cached.(float32)
 	}
 
 	// Get min and max from cache or compute via Range
 	var minV, maxV T
-	if cachedMin, ok := analysis.Cache[core.StatKindMin]; ok {
+	if cachedMin, ok := core.GetCacheValue(analysis, core.StatKindMin); ok {
 		minV = cachedMin.(T)
 	} else {
 		// Compute range which also caches min/max
 		StatArchDescriptiveVectorRange(analysis)
-		minV = analysis.Cache[core.StatKindMin].(T)
+		cachedMin, _ := core.GetCacheValue(analysis, core.StatKindMin)
+		minV = cachedMin.(T)
 	}
-	if cachedMax, ok := analysis.Cache[core.StatKindMax]; ok {
+	if cachedMax, ok := core.GetCacheValue(analysis, core.StatKindMax); ok {
 		maxV = cachedMax.(T)
 	} else {
 		// Compute range which also caches min/max
 		StatArchDescriptiveVectorRange(analysis)
-		maxV = analysis.Cache[core.StatKindMax].(T)
+		cachedMax, _ := core.GetCacheValue(analysis, core.StatKindMax)
+		maxV = cachedMax.(T)
 	}
 
 	midRange := (float32(minV) + float32(maxV)) / 2.0
-	analysis.Cache[core.StatKindMidRangeF32] = midRange
+	core.SetCacheValue(analysis, core.StatKindMidRangeF32, midRange)
 	return midRange
 }
 
@@ -2723,29 +2726,31 @@ func StatArchDescriptiveVectorMidRangeF64[T foundation.Numeric](
 ) float64 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindMidRangeF64]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindMidRangeF64); ok {
 		return cached.(float64)
 	}
 
 	// Get min and max from cache or compute via Range
 	var minV, maxV T
-	if cachedMin, ok := analysis.Cache[core.StatKindMin]; ok {
+	if cachedMin, ok := core.GetCacheValue(analysis, core.StatKindMin); ok {
 		minV = cachedMin.(T)
 	} else {
 		// Compute range which also caches min/max
 		StatArchDescriptiveVectorRange(analysis)
-		minV = analysis.Cache[core.StatKindMin].(T)
+		cachedMin, _ := core.GetCacheValue(analysis, core.StatKindMin)
+		minV = cachedMin.(T)
 	}
-	if cachedMax, ok := analysis.Cache[core.StatKindMax]; ok {
+	if cachedMax, ok := core.GetCacheValue(analysis, core.StatKindMax); ok {
 		maxV = cachedMax.(T)
 	} else {
 		// Compute range which also caches min/max
 		StatArchDescriptiveVectorRange(analysis)
-		maxV = analysis.Cache[core.StatKindMax].(T)
+		cachedMax, _ := core.GetCacheValue(analysis, core.StatKindMax)
+		maxV = cachedMax.(T)
 	}
 
 	midRange := (float64(minV) + float64(maxV)) / 2.0
-	analysis.Cache[core.StatKindMidRangeF64] = midRange
+	core.SetCacheValue(analysis, core.StatKindMidRangeF64, midRange)
 	return midRange
 }
 
@@ -2799,8 +2804,10 @@ func StatArchDescriptiveVectorFiveNumberSummaryF32[T foundation.Numeric](
 	// Use cached values where available, compute others
 	// Ensure min/max are cached by computing range if needed
 	StatArchDescriptiveVectorRange(analysis)
-	min := float32(analysis.Cache[core.StatKindMin].(T))
-	max := float32(analysis.Cache[core.StatKindMax].(T))
+	cachedMin, _ := core.GetCacheValue(analysis, core.StatKindMin)
+	cachedMax, _ := core.GetCacheValue(analysis, core.StatKindMax)
+	min := float32(cachedMin.(T))
+	max := float32(cachedMax.(T))
 	median := StatArchDescriptiveVectorMedianF32(analysis)
 	q1 := StatArchDescriptiveVectorPercentileF32(analysis, 25)
 	q3 := StatArchDescriptiveVectorPercentileF32(analysis, 75)
@@ -2846,8 +2853,10 @@ func StatArchDescriptiveVectorFiveNumberSummaryF64[T foundation.Numeric](
 	// Use cached values where available, compute others
 	// Ensure min/max are cached by computing range if needed
 	StatArchDescriptiveVectorRange(analysis)
-	min := float64(analysis.Cache[core.StatKindMin].(T))
-	max := float64(analysis.Cache[core.StatKindMax].(T))
+	cachedMin, _ := core.GetCacheValue(analysis, core.StatKindMin)
+	cachedMax, _ := core.GetCacheValue(analysis, core.StatKindMax)
+	min := float64(cachedMin.(T))
+	max := float64(cachedMax.(T))
 	median := StatArchDescriptiveVectorMedianF64(analysis)
 	q1 := StatArchDescriptiveVectorPercentileF64(analysis, 25)
 	q3 := StatArchDescriptiveVectorPercentileF64(analysis, 75)
@@ -2896,7 +2905,7 @@ func StatArchDescriptiveVectorBimodalityCoefficientF32[T foundation.Numeric](
 ) float32 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindBimodalityCoefficientF32]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindBimodalityCoefficientF32); ok {
 		return cached.(float32)
 	}
 
@@ -2908,7 +2917,7 @@ func StatArchDescriptiveVectorBimodalityCoefficientF32[T foundation.Numeric](
 	skewnessSquared := skewness * skewness
 	bimodalityCoeff := (skewnessSquared + 1.0) / (kurtosis + 3.0)
 
-	analysis.Cache[core.StatKindBimodalityCoefficientF32] = bimodalityCoeff
+	core.SetCacheValue(analysis, core.StatKindBimodalityCoefficientF32, bimodalityCoeff)
 	return bimodalityCoeff
 }
 
@@ -2947,7 +2956,7 @@ func StatArchDescriptiveVectorBimodalityCoefficientF64[T foundation.Numeric](
 ) float64 {
 	core.StatArchAnalysisValidateVersion(analysis)
 
-	if cached, ok := analysis.Cache[core.StatKindBimodalityCoefficientF64]; ok {
+	if cached, ok := core.GetCacheValue(analysis, core.StatKindBimodalityCoefficientF64); ok {
 		return cached.(float64)
 	}
 
@@ -2959,7 +2968,7 @@ func StatArchDescriptiveVectorBimodalityCoefficientF64[T foundation.Numeric](
 	skewnessSquared := skewness * skewness
 	bimodalityCoeff := (skewnessSquared + 1.0) / (kurtosis + 3.0)
 
-	analysis.Cache[core.StatKindBimodalityCoefficientF64] = bimodalityCoeff
+	core.SetCacheValue(analysis, core.StatKindBimodalityCoefficientF64, bimodalityCoeff)
 	return bimodalityCoeff
 }
 
