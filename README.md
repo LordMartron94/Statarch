@@ -437,6 +437,23 @@ All functions accept `StatArchAnalysis` structures and use cached values (skewne
   - Time complexity: O(n log n) - dominated by ranking operation
   - Requires `allocFn` for creating temporary vectors for ranking
 
+- `StatArchHypothesisVectorConfidenceIntervalF64` - Compute confidence interval for the mean
+  - Provides a range of values that likely contains the true population mean with the specified confidence level
+  - Uses t-distribution for small samples (n < 30) and z-score (normal approximation) for large samples (n >= 30)
+  - Formula: CI = mean ± t_critical * SEM where SEM is standard error of the mean
+  - Uses cached mean and standard error from analysis structure
+  - Time complexity: O(1) - uses cached statistics
+  - Requires at least 2 elements for meaningful interval
+  - Returns [mean, mean] for empty or single-element vectors
+
+- `StatArchHypothesisVectorIsSignificantlyDifferentF64` - Determine if two samples are significantly different
+  - Uses Mann-Whitney U test (non-parametric) to determine if two independent samples come from different distributions
+  - Returns true if p-value < (1 - confidence), indicating significant difference
+  - Falls back to confidence interval overlap test for small samples where Mann-Whitney U cannot provide p-value
+  - Time complexity: O(n log n) - dominated by ranking operation in Mann-Whitney U test
+  - Space complexity: O(n) - requires temporary storage for ranking
+  - Requires `allocFn` for creating temporary vectors
+
 **Example:**
 
 ```go
@@ -459,6 +476,14 @@ result := hypothesis.StatArchHypothesisVectorMannWhitneyUF64(analysisA, analysis
 // result.UStatistic - the U statistic
 // result.ZScore - z-score for normal approximation (only valid for large samples)
 // result.PValue - two-tailed p-value (only valid for large samples)
+
+// Compute confidence interval for the mean
+lower, upper := hypothesis.StatArchHypothesisVectorConfidenceIntervalF64(analysisA, 0.95, true)
+// Returns [lower, upper] - 95% confidence interval for the mean
+
+// Determine if two samples are significantly different
+isDifferent := hypothesis.StatArchHypothesisVectorIsSignificantlyDifferentF64(analysisA, analysisB, 0.95, allocFn)
+// Returns true if samples are significantly different at 95% confidence level
 ```
 
 ### `statarch/multivariate`
