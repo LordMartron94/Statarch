@@ -118,7 +118,8 @@ func StatArchDescriptiveVectorSumF32[T foundation.Numeric](
 		return cached
 	}
 
-	sum := reduce.BlazeReduceVectorSumF32[T](analysis.Vector)
+	var sum float32
+	reduce.BlazeReduceVectorSumF32[T](analysis.Vector, &sum)
 
 	core.StatArchAnalysisSetCacheValueF32(analysis, core.StatKindSumF32, sum)
 
@@ -156,7 +157,8 @@ func StatArchDescriptiveVectorSumF64[T foundation.Numeric](
 		return cached
 	}
 
-	sum := reduce.BlazeReduceVectorSumF64[T](analysis.Vector)
+	var sum float64
+	reduce.BlazeReduceVectorSumF64[T](analysis.Vector, &sum)
 
 	core.StatArchAnalysisSetCacheValueF64(analysis, core.StatKindSumF64, sum)
 
