@@ -626,7 +626,7 @@ func StatArchCorrelationVectorCosineSimilarityF32[T foundation.Numeric](
 	}
 
 	// Compute dot product using Blaze (no caching needed as it's between two vectors)
-	dotProduct := reduce.BlazeReduceDotProductF32[T, T](analysisA.Vector, analysisB.Vector)
+	dotProduct := reduce.BlazeReduceVectorDotProductF32[T, T](analysisA.Vector, analysisB.Vector)
 
 	return dotProduct / (normA * normB)
 }
@@ -689,7 +689,8 @@ func StatArchCorrelationVectorCosineSimilarityF64[T foundation.Numeric](
 	}
 
 	// Compute dot product using Blaze (no caching needed as it's between two vectors)
-	dotProduct := reduce.BlazeReduceDotProductF64[T, T](analysisA.Vector, analysisB.Vector)
+	var dotProduct float64
+	reduce.BlazeReduceVectorDotProductF64[T, T](analysisA.Vector, analysisB.Vector, &dotProduct)
 
 	return dotProduct / (normA * normB)
 }
