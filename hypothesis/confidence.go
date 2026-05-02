@@ -2,8 +2,6 @@ package hypothesis
 
 import (
 	"foundation"
-	"math"
-	"memcore"
 	"statarch/core"
 	"statarch/descriptive"
 	"sync"
@@ -78,95 +76,6 @@ func StatArchHypothesisVectorConfidenceIntervalF64[T foundation.Numeric](
 	upper = mean + margin
 
 	return lower, upper
-}
-
-/*
-StatArchHypothesisVectorIsSignificantlyDifferentF64 determines if two samples are significantly different
-using the Mann-Whitney U test (non-parametric).
-
-This function uses the Mann-Whitney U test to determine if two independent samples come from
-different distributions. It is a non-parametric alternative to the t-test and does not require
-normality assumptions.
-
-Use cases:
-- Performance comparison (comparing benchmark results)
-- A/B testing (determining if changes are significant)
-- Quality control (comparing process outputs)
-- Statistical hypothesis testing (when normality cannot be assumed)
-
-Time complexity: O(n log n) - dominated by ranking operation in Mann-Whitney U test
-Space complexity: O(n) - requires temporary storage for ranking
-
-Prerequisites:
-- Both analysis structures must be valid
-- Both vectors must contain at least 1 element
-- confidence should be in range [0.0, 1.0]
-- allocFn must be provided for creating temporary vectors
-
-Edge cases:
-- Returns false if either vector has < 1 element
-- Returns false for small samples (n_A + n_B <= 20) where exact distribution would be needed
-- Uses p-value threshold based on confidence level: p < (1 - confidence)
-
-Algorithm:
-1. Perform Mann-Whitney U test on both samples
-2. Extract p-value from test result
-3. Compare p-value to significance threshold: (1 - confidence)
-4. Return true if p-value < threshold (samples are significantly different)
-*/
-func StatArchHypothesisVectorIsSignificantlyDifferentF64[T foundation.Numeric](
-	analysis1 *core.StatArchAnalysis[T],
-	analysis2 *core.StatArchAnalysis[T],
-	confidence float64,
-	allocFn func(sizeBytes, alignment uint64) memcore.MarkRaw,
-) bool {
-	core.StatArchAnalysisValidateVersion(analysis1)
-	core.StatArchAnalysisValidateVersion(analysis2)
-
-	if analysis1.Count < 1 || analysis2.Count < 1 {
-		return false
-	}
-
-	// Clamp confidence to valid range
-	if confidence < 0.0 {
-		confidence = 0.0
-	}
-	if confidence > 1.0 {
-		confidence = 1.0
-	}
-
-	// Perform Mann-Whitney U test
-	result := StatArchHypothesisVectorMannWhitneyUF64(analysis1, analysis2, allocFn)
-
-	// Check if p-value is valid (not NaN)
-	if math.IsNaN(result.PValue) {
-		// For small samples, fall back to confidence interval overlap test
-		return isSignificantlyDifferentByConfidenceIntervals(analysis1, analysis2, confidence)
-	}
-
-	// Significance threshold: p < (1 - confidence)
-	// For 95% confidence, we want p < 0.05
-	significanceThreshold := 1.0 - confidence
-	return result.PValue < significanceThreshold
-}
-
-/*
-isSignificantlyDifferentByConfidenceIntervals is a fallback method that uses confidence interval overlap
-when Mann-Whitney U test cannot provide a p-value (e.g., for small samples).
-
-Time complexity: O(1) - uses cached statistics
-Space complexity: O(1) - only local variables
-*/
-func isSignificantlyDifferentByConfidenceIntervals[T foundation.Numeric](
-	analysis1 *core.StatArchAnalysis[T],
-	analysis2 *core.StatArchAnalysis[T],
-	confidence float64,
-) bool {
-	lower1, upper1 := StatArchHypothesisVectorConfidenceIntervalF64(analysis1, confidence, true)
-	lower2, upper2 := StatArchHypothesisVectorConfidenceIntervalF64(analysis2, confidence, true)
-
-	// If confidence intervals don't overlap, samples are significantly different
-	return upper1 < lower2 || upper2 < lower1
 }
 
 // criticalValueCache stores cached critical values (t-critical and z-critical) to avoid repeated computations.

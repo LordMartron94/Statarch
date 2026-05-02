@@ -109,89 +109,6 @@ func TestStatArchHypothesisVectorConfidenceIntervalF64_SingleElement(t *testing.
 	}
 }
 
-func TestStatArchHypothesisVectorIsSignificantlyDifferentF64(t *testing.T) {
-	allocator := memforge.DynamicLinearAllocatorCreateFunction(2048, func(currentCap, needed uint64) uint64 {
-		newSize := currentCap * 2
-		if newSize < needed {
-			newSize = needed
-		}
-		return newSize
-	})
-	defer memforge.DynamicLinearAllocatorDestroy(allocator)
-
-	allocFn := func(sizeBytes, alignment uint64) memcore.MarkRaw {
-		return memforge.DynamicLinearAllocatorMallocUnsafe(allocator, sizeBytes, alignment)
-	}
-
-	// Create two clearly different samples
-	// Sample 1: [1, 2, 3, 4, 5] - mean = 3.0
-	// Sample 2: [10, 11, 12, 13, 14] - mean = 12.0
-	vector1, _ := memarch.MemArchVectorCreate[float64](allocFn, 5)
-	memstruct.VectorSetFromSlice(vector1, []float64{1.0, 2.0, 3.0, 4.0, 5.0})
-	analysis1 := core.StatArchAnalysisCreate[float64](vector1, allocFn)
-
-	vector2, _ := memarch.MemArchVectorCreate[float64](allocFn, 5)
-	memstruct.VectorSetFromSlice(vector2, []float64{10.0, 11.0, 12.0, 13.0, 14.0})
-	analysis2 := core.StatArchAnalysisCreate[float64](vector2, allocFn)
-
-	// These should be significantly different
-	isDifferent := StatArchHypothesisVectorIsSignificantlyDifferentF64(analysis1, analysis2, 0.95, allocFn)
-
-	if !isDifferent {
-		t.Error("Expected samples [1,2,3,4,5] and [10,11,12,13,14] to be significantly different")
-	}
-}
-
-func TestStatArchHypothesisVectorIsSignificantlyDifferentF64_SimilarSamples(t *testing.T) {
-	allocator := memforge.DynamicLinearAllocatorCreateFunction(2048, func(currentCap, needed uint64) uint64 {
-		return needed
-	})
-	defer memforge.DynamicLinearAllocatorDestroy(allocator)
-
-	allocFn := func(sizeBytes, alignment uint64) memcore.MarkRaw {
-		return memforge.DynamicLinearAllocatorMallocUnsafe(allocator, sizeBytes, alignment)
-	}
-
-	// Create two very similar samples
-	// Sample 1: [1, 2, 3, 4, 5]
-	// Sample 2: [1.1, 2.1, 3.1, 4.1, 5.1]
-	vector1, _ := memarch.MemArchVectorCreate[float64](allocFn, 5)
-	memstruct.VectorSetFromSlice(vector1, []float64{1.0, 2.0, 3.0, 4.0, 5.0})
-	analysis1 := core.StatArchAnalysisCreate[float64](vector1, allocFn)
-
-	vector2, _ := memarch.MemArchVectorCreate[float64](allocFn, 5)
-	memstruct.VectorSetFromSlice(vector2, []float64{1.1, 2.1, 3.1, 4.1, 5.1})
-	analysis2 := core.StatArchAnalysisCreate[float64](vector2, allocFn)
-
-	// These might not be significantly different (depends on test)
-	// We'll just verify the function doesn't panic
-	_ = StatArchHypothesisVectorIsSignificantlyDifferentF64(analysis1, analysis2, 0.95, allocFn)
-}
-
-func TestStatArchHypothesisVectorIsSignificantlyDifferentF64_EmptySamples(t *testing.T) {
-	allocator := memforge.DynamicLinearAllocatorCreateFunction(1024, func(currentCap, needed uint64) uint64 {
-		return needed
-	})
-	defer memforge.DynamicLinearAllocatorDestroy(allocator)
-
-	allocFn := func(sizeBytes, alignment uint64) memcore.MarkRaw {
-		return memforge.DynamicLinearAllocatorMallocUnsafe(allocator, sizeBytes, alignment)
-	}
-
-	vector1, _ := memarch.MemArchVectorCreate[float64](allocFn, 0)
-	analysis1 := core.StatArchAnalysisCreate[float64](vector1, allocFn)
-
-	vector2, _ := memarch.MemArchVectorCreate[float64](allocFn, 0)
-	analysis2 := core.StatArchAnalysisCreate[float64](vector2, allocFn)
-
-	// Should return false for empty samples
-	isDifferent := StatArchHypothesisVectorIsSignificantlyDifferentF64(analysis1, analysis2, 0.95, allocFn)
-
-	if isDifferent {
-		t.Error("Expected false for empty samples")
-	}
-}
-
 func TestComputeTCritical(t *testing.T) {
 	// Test that t-critical values are reasonable
 	// For large samples (n >= 30), should use z-score
@@ -235,4 +152,3 @@ func TestComputeZCritical(t *testing.T) {
 		t.Errorf("Expected z99 > z95, got %f vs %f", z99, z95)
 	}
 }
-

@@ -8,6 +8,8 @@ import (
 	"memstruct"
 	"statarch/core"
 	"statarch/descriptive"
+
+	"gonum.org/v1/gonum/stat/distuv"
 )
 
 /*
@@ -582,4 +584,175 @@ func normalCDFApprox(z float64) float64 {
 	// Use error function: erf(x) = 2/√π * ∫[0 to x] e^(-t²) dt
 	// Φ(x) = 0.5 * (1 + erf(x/√2))
 	return 0.5 * (1.0 + math.Erf(z/math.Sqrt2))
+}
+
+/*
+ZProportionResult aggregates the pooled two-proportion z statistic and an asymptotic two-tailed p-value.
+
+[Context]
+
+Both fields rely on the normal approximation to the sampling distribution of the difference in proportions.
+
+The p-value is computed as two times the standard normal lower tail beyond |z|
+
+	p = 2·Φ(−|z|)
+
+using gonum's Normal CDF implementation.
+
+Large-sample assumptions (rule-of-thumb guidelines such as n·p and n·(1−p) adequately large for each group)
+still apply when interpreting ZScore and PValue.
+
+Known limitations:
+
+Interpretation degrades when sample sizes are small or pooled is near 0 or 1; see edge-case notes on the
+compute functions below.
+*/
+type ZProportionResult struct {
+	ZScore float64 // Pooled two-proportion z (normal approximation).
+	PValue float64 // Two-tailed p-value under the standard normal approximation.
+}
+
+/*
+StatArchHypothesisVectorTwoProportionZF32 computes the pooled two-proportion z statistic and two-tailed p-value using float32 intermediate arithmetic.
+
+[Context]
+
+Independent samples test H0: pA = pB. Callers pass explicit positive sample sizes and observed proportions.
+
+[Algorithmic Approach]
+
+Pooled proportion: pooled = (pA·nA + pB·nB) / (nA + nB). Standard error:
+SE = sqrt(pooled·(1 − pooled)·(1/nA + 1/nB)). Let z32 = float32(pA − pB) / sqrt32(SE_terms in float32 chain).
+Returned ZScore is float64(z32); PValue is two-tailed from the standard normal using |ZScore|.
+Reference summary: https://www.statology.org/two-proportion-z-test/
+
+Use cases:
+
+Same as F64 variant when memory or pipeline prefers float32 in the ratio step (expect slightly different ZScore vs full float64 math).
+
+Parameters:
+
+- sampleSizeA, sampleSizeB: strictly positive cohort sizes (trial counts).
+
+- proportionA, proportionB: sample proportions, typically [0, 1].
+
+Returns:
+
+ZProportionResult with ZScore and asymptotic two-tailed PValue.
+
+Edge cases:
+
+- Zero sample sizes: division-by-zero risk in pooled or SE denominator; non-finite ZScore/PValue possible.
+- pooled at 0 or 1 collapses variance term; Inf/NaN z or degenerate p-value.
+- Proportions inconsistent with successes/n are not validated.
+
+Side effects:
+
+Pure; no allocations in the statistic path besides the returned struct value.
+
+Complexity:
+
+Time O(1), space O(1).
+
+Thread safety:
+
+Reentrant; uses no shared mutable state.
+*/
+func StatArchHypothesisVectorTwoProportionZF32(
+	sampleSizeA uint64,
+	sampleSizeB uint64,
+	proportionA float64,
+	proportionB float64,
+) ZProportionResult {
+	nA := float64(sampleSizeA)
+	nB := float64(sampleSizeB)
+
+	proportionDifference := float32(proportionA) - float32(proportionB)
+	pooledProportion := ((proportionA * nA) + (proportionB * nB)) / (nA + nB)
+
+	zScore := proportionDifference / foundation.Sqrt32(
+		(pooledProportion*(1-pooledProportion))*(1/nA+1/nB),
+	)
+
+	return ZProportionResult{
+		ZScore: float64(zScore),
+		PValue: computePValueFromZTwoTailed(float64(zScore)),
+	}
+}
+
+/*
+StatArchHypothesisVectorTwoProportionZF64 computes the pooled two-proportion z statistic and two-tailed p-value using float64 arithmetic end-to-end.
+
+[Context]
+
+Identical hypotheses to StatArchHypothesisVectorTwoProportionZF32; this variant is preferred when ZScore accuracy should match textbook double-precision algebra before the normal p-value mapping.
+
+[Algorithmic Approach]
+
+pooled = (pA·nA + pB·nB) / (nA + nB); SE = sqrt(pooled·(1 − pooled)·(1/nA + 1/nB)); ZScore = (pA − pB) / SE;
+PValue = 2·Φ(−|ZScore|) via Gonum Normal CDF. Reference narrative: https://www.statology.org/two-proportion-z-test/
+
+Use cases:
+
+Prefer when comparing against tabulated critical z values or chaining with other float64-precision statistics.
+
+Parameters:
+
+- sampleSizeA, sampleSizeB: strictly positive sample sizes as discrete counts.
+
+- proportionA, proportionB: observed proportions.
+
+Returns:
+
+ZProportionResult with pooled z and asymptotic two-tailed p-value.
+
+Edge cases:
+
+Zero sizes or degenerate pooled proportion produce non-finite ZScore; downstream PValue may be NaN.
+Integer success counts are not checked against proportions.
+
+Side effects:
+
+Pure.
+
+Complexity:
+
+Time O(1), space O(1).
+
+Thread safety:
+
+Reentrant.
+*/
+func StatArchHypothesisVectorTwoProportionZF64(
+	sampleSizeA uint64,
+	sampleSizeB uint64,
+	proportionA float64,
+	proportionB float64,
+) ZProportionResult {
+	nA := float64(sampleSizeA)
+	nB := float64(sampleSizeB)
+
+	proportionDifference := proportionA - proportionB
+	pooledProportion := ((proportionA * nA) + (proportionB * nB)) / (nA + nB)
+
+	zScore := proportionDifference / foundation.Sqrt64(
+		(pooledProportion*(1-pooledProportion))*(1/nA+1/nB),
+	)
+
+	return ZProportionResult{
+		ZScore: zScore,
+		PValue: computePValueFromZTwoTailed(zScore),
+	}
+}
+
+//go:inline
+//go:nosplit
+func computePValueFromZTwoTailed(zScore float64) float64 {
+	normal := distuv.Normal{
+		Mu:    0,
+		Sigma: 1,
+		Src:   nil,
+	}
+
+	return 2.0 * normal.CDF(-math.Abs(zScore))
 }
